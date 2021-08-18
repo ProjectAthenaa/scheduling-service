@@ -9,6 +9,11 @@ func init() {
 }
 
 //Retrieves scheduled tasks
-func GetUserTasks(userID string) []*model.Task  {
+func GetUserTasks(userID string) []*model.Task {
 	return scheduler.getUserTasks(userID)
+}
+
+//Stops scheduler
+func Stop() {
+	scheduler.cancelFunc()
 }

@@ -12,22 +12,32 @@ import (
 )
 
 type Schedule struct {
-	data   map[time.Time]Tasks
-	locker sync.Mutex
+	data       map[time.Time]Tasks
+	locker     sync.Mutex
+	ctx        context.Context
+	cancelFunc context.CancelFunc
 }
 
 func NewScheduler() *Schedule {
-	return &Schedule{}
+	ctx, cancel := context.WithCancel(context.Background())
+	return &Schedule{ctx: ctx, cancelFunc: cancel}
 }
 
 func (s *Schedule) init() {
 	go func() {
 		go s.populate()
 		for range time.Tick(time.Millisecond * 200) {
+			select {
+			case <-s.ctx.Done():
+				return
+			default:
+				break
+			}
+
 			go s.startMonitors()
-			for _, task := range s.getChunks() {
-				if err := task.start(); err != nil {
-					log.Error("error starting task", err, "task_id:", task.ID.String())
+			for _, t := range s.getChunks() {
+				if err := t.start(s.ctx); err != nil {
+					log.Error("error starting task", err, "task_id:", t.ID.String())
 				}
 			}
 		}
@@ -35,6 +45,12 @@ func (s *Schedule) init() {
 }
 
 func (s *Schedule) add(task *Task) {
+	select {
+	case <-s.ctx.Done():
+		return
+	default:
+		break
+	}
 	s.locker.Lock()
 	defer s.locker.Unlock()
 
@@ -53,6 +69,12 @@ func (s *Schedule) add(task *Task) {
 
 func (s *Schedule) deleteOlderEntries() {
 	for range time.Tick(time.Minute * 15) {
+		select {
+		case <-s.ctx.Done():
+			return
+		default:
+			break
+		}
 		s.locker.Lock()
 		for k := range s.data {
 			if time.Now().Sub(k) >= time.Hour {
@@ -64,6 +86,12 @@ func (s *Schedule) deleteOlderEntries() {
 }
 
 func (s *Schedule) getChunks() Tasks {
+	select {
+	case <-s.ctx.Done():
+		return nil
+	default:
+		break
+	}
 	var tasks Tasks
 	s.locker.Lock()
 	defer s.locker.Unlock()
@@ -77,6 +105,12 @@ func (s *Schedule) getChunks() Tasks {
 }
 
 func (s *Schedule) startMonitors() {
+	select {
+	case <-s.ctx.Done():
+		return
+	default:
+		break
+	}
 	s.locker.Lock()
 	defer s.locker.Unlock()
 
@@ -104,7 +138,7 @@ func (s *Schedule) startMonitors() {
 
 			uniqueTasks.Range(func(key, value interface{}) bool {
 				task := value.(*Task)
-				if err := task.startMonitor(context.Background()); err != nil {
+				if err := task.startMonitor(s.ctx); err != nil {
 					log.Error("error starting monitor:", err)
 				}
 				return true
@@ -117,7 +151,25 @@ func (s *Schedule) startMonitors() {
 func (s *Schedule) populate() {
 	go s.deleteOlderEntries()
 	for range time.Tick(time.Millisecond * 200) {
-		tasks, err := core.Base.GetPg("pg").Task.Query().Where(task.StartTimeGTE(time.Now().Add(-time.Minute * 30))).WithProduct().All(context.Background())
+		select {
+		case <-s.ctx.Done():
+			return
+		default:
+			break
+		}
+		tasks, err := core.
+			Base.
+			GetPg("pg").
+			Task.Query().
+			Where(
+				task.StartTimeGTE(
+					time.Now().
+						Add(-time.Minute * 30),
+				),
+			).
+			WithProduct().
+			All(s.ctx)
+
 		if err != nil {
 			continue
 		}
@@ -133,7 +185,11 @@ func (s *Schedule) populate() {
 			t := tk
 			go func() {
 				defer wg.Done()
-				user, err := t.QueryProfileGroup().QueryApp().QueryUser().First(context.Background())
+				user, err := t.
+					QueryProfileGroup().
+					QueryApp().
+					QueryUser().
+					First(s.ctx)
 				if err != nil {
 					log.Error("error getting user", err)
 				}

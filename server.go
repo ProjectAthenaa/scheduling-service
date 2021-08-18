@@ -7,6 +7,7 @@ import (
 	"github.com/99designs/gqlgen/graphql/playground"
 	"github.com/ProjectAthenaa/scheduling-service/graph/generated"
 	"github.com/ProjectAthenaa/scheduling-service/resolvers"
+	"github.com/ProjectAthenaa/scheduling-service/scheduler"
 	"github.com/ProjectAthenaa/sonic-core/sonic/core"
 	"log"
 	"net/http"
@@ -25,6 +26,7 @@ func init() {
 		defer close(c)
 		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 		<-c
+		scheduler.Stop()
 		core.Base.GetRedis("cache").Decr(context.Background(), "schedulers")
 	}()
 }
