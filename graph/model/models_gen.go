@@ -10,6 +10,7 @@ import (
 )
 
 type Task struct {
+	ID                string    `json:"ID"`
 	SubscriptionToken string    `json:"SubscriptionToken"`
 	ControlToken      string    `json:"ControlToken"`
 	StartTime         time.Time `json:"StartTime"`

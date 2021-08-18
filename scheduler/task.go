@@ -15,6 +15,8 @@ type Task struct {
 	monitorChannel    string
 	subscriptionToken string
 	controlToken      string
+	userID            string
+	taskID            string
 }
 
 func (t Tasks) Chunk(chunkSize int) []Tasks {
@@ -54,10 +56,15 @@ func (t *Task) getMonitorID() string {
 		return helpers.SHA1(strings.Join(v.PositiveKeywords, "") + strings.Join(v.NegativeKeywords, ""))
 	case product.LookupTypeOther:
 		for k, val := range v.Metadata {
-			if strings.Contains(k, "LOOKUP") {
+			if strings.Contains(k, "LOOKUP_") {
 				return helpers.SHA1(val)
 			}
 		}
 	}
 	return ""
+}
+
+func (t *Task) start() error {
+
+	return nil
 }

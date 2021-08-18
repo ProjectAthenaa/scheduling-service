@@ -18,11 +18,11 @@ func getMonitorClient() monitorProtos.MonitorClient {
 	return monitorProtos.NewMonitorClient(conn)
 }
 
-func (t *Task) StartMonitor(ctx context.Context) error {
+func (t *Task) startMonitor(ctx context.Context) error {
 	newMonitorTask := &monitorProtos.Task{
-		Site:     string(t.Edges.Product[0].Site),
-		Lookup:   nil,
-		Metadata: t.Edges.Product[0].Metadata,
+		Site:         string(t.Edges.Product[0].Site),
+		Metadata:     t.Edges.Product[0].Metadata,
+		RedisChannel: t.monitorChannel,
 	}
 
 	switch t.Edges.Product[0].LookupType {
@@ -33,6 +33,8 @@ func (t *Task) StartMonitor(ctx context.Context) error {
 		}}
 	case product.LookupTypeLink:
 		newMonitorTask.Lookup = &monitorProtos.Task_Link{Link: t.Edges.Product[0].Link}
+	case product.LookupTypeOther:
+		break
 	}
 
 	_, err := monitorClient.NewTask(ctx, newMonitorTask)
@@ -40,6 +42,5 @@ func (t *Task) StartMonitor(ctx context.Context) error {
 		return err
 	}
 
-	//t = resp
 	return nil
 }

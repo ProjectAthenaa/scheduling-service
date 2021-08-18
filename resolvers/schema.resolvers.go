@@ -6,6 +6,7 @@ package resolvers
 import (
 	"context"
 	"fmt"
+	"github.com/ProjectAthenaa/scheduling-service/scheduler"
 
 	"github.com/ProjectAthenaa/scheduling-service/graph/generated"
 	"github.com/ProjectAthenaa/scheduling-service/graph/model"
@@ -16,7 +17,8 @@ func (r *mutationResolver) SendCommand(ctx context.Context, controlToken string,
 }
 
 func (r *queryResolver) GetScheduledTasks(ctx context.Context) ([]*model.Task, error) {
-	panic(fmt.Errorf("not implemented"))
+	userID := getUserIDFromContext(ctx)
+	return scheduler.GetUserTasks(userID), nil
 }
 
 func (r *subscriptionResolver) TaskUpdates(ctx context.Context, subscriptionToken string) (<-chan *model.TaskStatus, error) {

@@ -43,6 +43,7 @@ type TaskStatus{
 }
 
 type Task{
+    ID: String!
     SubscriptionToken: String!
     ControlToken: String!
     StartTime: Time!

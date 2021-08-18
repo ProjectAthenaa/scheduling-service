@@ -1,14 +1,14 @@
 package scheduler
 
-import "time"
+import "github.com/ProjectAthenaa/scheduling-service/graph/model"
 
-var schedule = &Schedule{}
+var scheduler = NewScheduler()
 
 func init() {
-	go schedule.populate()
+	scheduler.init()
+}
 
-	for range time.Tick(time.Millisecond * 200) {
-
-	}
-
+//Retrieves scheduled tasks
+func GetUserTasks(userID string) []*model.Task  {
+	return scheduler.getUserTasks(userID)
 }
