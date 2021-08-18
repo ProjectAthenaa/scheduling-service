@@ -97,7 +97,7 @@ func (t *Task) process(ctx context.Context) {
 		return
 	}
 
-	if err := t.backend.Send(t.getPayload()); err != nil {
+	if err = t.backend.Send(t.getPayload()); err != nil {
 		t.setError(err)
 		t.stop()
 		return
