@@ -1,0 +1,61 @@
+scalar Map
+scalar Time
+
+enum COMMAND{
+    STOP
+    PAUSE
+    CONTINUE
+}
+
+enum STATUS{
+    PADDING
+    STARTING
+    MONITORING
+    PRODUCT_FOUND
+    ADDING_TO_CART
+    SOLVING_CAPTCHA
+    CHECKING_OUT
+    CHECKED_OUT
+    ERROR
+    ACTION_NEEDED
+    GENERATING_COOKIES
+    TASK_NOT_FOUND
+    WAITING_FOR_CHECKOUT
+    CHECKOUT_ERROR
+    CHECKOUT_FAILED
+    CHECKOUT_DUPLICATE
+    CHECKOUT_OOS
+    CHECKOUT_DECLINE
+    CHECKOUT_WAITING_FOR_3DS
+    CHECKOUT_3DS_ERROR
+    STOPPED
+    PAUSING
+    PAUSED
+    CONTINUING
+    CONTINUED
+    RESTARTING
+}
+
+type TaskStatus{
+    Status: STATUS!
+    Error: String
+    Information: Map!
+}
+
+type Task{
+    SubscriptionToken: String!
+    ControlToken: String!
+    StartTime: Time!
+}
+
+type Query{
+    getScheduledTasks: [Task]!
+}
+
+type Mutation{
+    sendCommand(ControlToken: String!, Command: COMMAND!): Boolean!
+}
+
+type Subscription {
+    taskUpdates(SubscriptionToken: String!): TaskStatus!
+}
