@@ -12,7 +12,7 @@ import (
 )
 
 type Schedule struct {
-	data       map[time.Time]Tasks
+	data       map[time.Time][]*Task
 	locker     sync.Mutex
 	ctx        context.Context
 	cancelFunc context.CancelFunc
@@ -24,6 +24,7 @@ func NewScheduler() *Schedule {
 }
 
 func (s *Schedule) init() {
+	s.data = map[time.Time][]*Task{}
 	go func() {
 		go s.populate()
 		for range time.Tick(time.Millisecond * 200) {
@@ -54,17 +55,16 @@ func (s *Schedule) add(task *Task) {
 	s.locker.Lock()
 	defer s.locker.Unlock()
 
-	if tasks, ok := s.data[*task.StartTime]; ok {
-		for _, t := range tasks {
-			if t.ID == task.ID {
+	for _, tks := range s.data {
+		for _, tk := range tks {
+			if tk.ID == task.ID {
+				tk = task
 				return
 			}
 		}
-
-		tasks = append(tasks, task)
-	} else {
-		s.data[*task.StartTime] = Tasks{task}
 	}
+
+	s.data[*task.StartTime] = append(s.data[*task.StartTime], task)
 }
 
 func (s *Schedule) deleteOlderEntries() {
@@ -85,19 +85,19 @@ func (s *Schedule) deleteOlderEntries() {
 	}
 }
 
-func (s *Schedule) getChunks() Tasks {
+func (s *Schedule) getChunks() []*Task {
 	select {
 	case <-s.ctx.Done():
 		return nil
 	default:
 		break
 	}
-	var tasks Tasks
+	var tasks []*Task
 	s.locker.Lock()
 	defer s.locker.Unlock()
 	for k := range s.data {
 		if k.Sub(time.Now()) <= time.Second*1 {
-			chunks := s.data[k].Chunk(helpers.GetProcessCount())
+			chunks := chunk(s.data[k], helpers.GetProcessCount())
 			tasks = append(tasks, chunks[helpers.GetCurrentProcessNumber()]...)
 		}
 	}
@@ -117,19 +117,19 @@ func (s *Schedule) startMonitors() {
 	for k, tasks := range s.data {
 		if k.Sub(time.Now()) <= time.Minute {
 			var uniqueTasks sync.Map
-			chunks := tasks.Chunk(4)
+			chunks := chunk(tasks, 4)
 
 			var wg sync.WaitGroup
 
-			for i := 0; i < 4; i++ {
+			for i := 0; i < len(chunks); i++ {
 				wg.Add(1)
 				index := i
 				go func() {
 					defer wg.Done()
-					for _, task := range chunks[index] {
-						mID := task.getMonitorID()
-						task.monitorChannel = mID
-						uniqueTasks.Store(mID, task)
+					for _, tk := range chunks[index] {
+						mID := tk.getMonitorID()
+						tk.monitorChannel = mID
+						uniqueTasks.Store(mID, tk)
 					}
 				}()
 			}
@@ -137,10 +137,15 @@ func (s *Schedule) startMonitors() {
 			wg.Wait()
 
 			uniqueTasks.Range(func(key, value interface{}) bool {
-				task := value.(*Task)
-				if err := task.startMonitor(s.ctx); err != nil {
-					log.Error("error starting monitor:", err)
+				tk := value.(*Task)
+				if !tk.monitorStarted {
+					if err := tk.startMonitor(s.ctx); err != nil {
+						//log.Error("error starting monitor:", err)
+						return true
+					}
+					tk.monitorStarted = true
 				}
+
 				return true
 			})
 
@@ -150,6 +155,23 @@ func (s *Schedule) startMonitors() {
 
 func (s *Schedule) populate() {
 	go s.deleteOlderEntries()
+
+	go func() {
+		pubSub := core.Base.GetRedis("cache").Subscribe(s.ctx, "scheduler:tasks-deleted")
+		defer pubSub.Close()
+		for taskID := range pubSub.Channel() {
+			s.locker.Lock()
+			for k, tasks := range s.data {
+				for i, tk := range tasks {
+					if tk.taskID == taskID.Payload {
+						s.data[k] = removeTask(tasks, i)
+					}
+				}
+			}
+			s.locker.Unlock()
+		}
+	}()
+
 	for range time.Tick(time.Millisecond * 200) {
 		select {
 		case <-s.ctx.Done():
@@ -164,7 +186,7 @@ func (s *Schedule) populate() {
 			Where(
 				task.StartTimeGTE(
 					time.Now().
-						Add(-time.Minute * 30),
+						Add(-time.Hour * 50000),
 				),
 			).
 			WithProduct().
@@ -191,8 +213,13 @@ func (s *Schedule) populate() {
 					QueryUser().
 					First(s.ctx)
 				if err != nil {
-					log.Error("error getting user", err)
+					if user == nil {
+						core.Base.GetPg("pg").Task.DeleteOne(t).ExecX(context.Background())
+					}
+					log.Error("error getting user ", err)
+					return
 				}
+
 				s.add(&Task{
 					Task:              t,
 					subscriptionToken: t.ID.String(),
@@ -202,6 +229,7 @@ func (s *Schedule) populate() {
 				})
 			}()
 		}
+		wg.Wait()
 	}
 }
 
@@ -221,4 +249,10 @@ func (s *Schedule) getUserTasks(userID string) (tasks []*model.Task) {
 		}
 	}
 	return
+}
+
+func (s *Schedule) getData() map[time.Time][]*Task {
+	s.locker.Lock()
+	defer s.locker.Unlock()
+	return s.data
 }

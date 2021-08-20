@@ -16,5 +16,5 @@ func GetCurrentProcessNumber() int {
 func GetProcessCount() int {
 	val, _ := core.Base.GetRedis("cache").Get(context.Background(), "schedulers").Result()
 	count, _ := strconv.Atoi(val)
-	return count - 1
+	return count
 }

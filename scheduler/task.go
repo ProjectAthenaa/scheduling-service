@@ -23,8 +23,6 @@ var (
 	json   = jsoniter.ConfigFastest
 )
 
-type Tasks []*Task
-
 type Task struct {
 	*ent.Task
 	monitorChannel    string
@@ -35,23 +33,24 @@ type Task struct {
 	ctx               context.Context
 	cancel            context.CancelFunc
 	backend           tasks.Tasks_TaskClient
+	monitorStarted    bool
 }
 
-func (t Tasks) Chunk(chunkSize int) []Tasks {
-	if len(t) == 0 {
+func chunk(tasks []*Task, chunkSize int) [][]*Task {
+	if len(tasks) == 0 {
 		return nil
 	}
-	divided := make([]Tasks, (len(t)+chunkSize-1)/chunkSize)
+	divided := make([][]*Task, (len(tasks)+chunkSize-1)/chunkSize)
 	prev := 0
 	i := 0
-	till := len(t) - chunkSize
+	till := len(tasks) - chunkSize
 	for prev < till {
 		next := prev + chunkSize
-		divided[i] = t[prev:next]
+		divided[i] = tasks[prev:next]
 		prev = next
 		i++
 	}
-	divided[i] = t[prev:]
+	divided[i] = tasks[prev:]
 	return divided
 }
 

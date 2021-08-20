@@ -20,6 +20,10 @@ const defaultPort = "8080"
 
 func init() {
 	go func() {
+		if os.Getenv("DEBUG") == "1"{
+			core.Base.GetRedis("cache").Del(context.Background(), "schedulers")
+		}
+
 		count, _ := core.Base.GetRedis("cache").Incr(context.Background(), "schedulers").Result()
 		os.Setenv("COUNTER", fmt.Sprint(count-1))
 		c := make(chan os.Signal, 1)
