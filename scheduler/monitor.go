@@ -21,6 +21,13 @@ func getMonitorClient() monitorProtos.MonitorClient {
 
 //startMonitor provides a convenient wrapper around building the monitor controller payload
 func (t *Task) startMonitor(ctx context.Context) error {
+	//checks whether there is at least one subscriber for given key, if there is it means the monitor has already started
+	if subCount, err := rdb.PubSubNumSub(t.ctx, t.monitorChannel).Result(); err != nil {
+		if subCount[t.monitorChannel] >= 1 {
+			return nil
+		}
+	}
+
 	newMonitorTask := &monitorProtos.Task{
 		Site:         string(t.Edges.Product[0].Site),
 		Metadata:     t.Edges.Product[0].Metadata,

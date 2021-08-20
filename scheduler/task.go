@@ -59,10 +59,11 @@ func chunk(tasks []*Task, chunkSize int) [][]*Task {
 
 //getMonitorID returns the monitor id of a task based on its lookup values
 func (t *Task) getMonitorID() string {
+	prefix := fmt.Sprintf("monitors:%s:", t.Edges.Product[0].Site)
 	v := t.Edges.Product[0]
 	switch v.LookupType {
 	case product.LookupTypeLink:
-		return helpers.SHA1(v.Link)
+		return prefix + helpers.SHA1(v.Link)
 	case product.LookupTypeKeywords:
 		sort.Strings(v.PositiveKeywords)
 		sort.Strings(v.NegativeKeywords)
@@ -74,11 +75,11 @@ func (t *Task) getMonitorID() string {
 			v.NegativeKeywords[i] = strings.ToLower(s)
 		}
 
-		return helpers.SHA1(strings.Join(v.PositiveKeywords, "") + strings.Join(v.NegativeKeywords, ""))
+		return prefix + helpers.SHA1(strings.Join(v.PositiveKeywords, "")+strings.Join(v.NegativeKeywords, ""))
 	case product.LookupTypeOther:
 		for k, val := range v.Metadata {
 			if strings.Contains(k, "LOOKUP_") {
-				return helpers.SHA1(val)
+				return prefix + helpers.SHA1(val)
 			}
 		}
 	}
