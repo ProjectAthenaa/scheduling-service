@@ -18,15 +18,19 @@ type Schedule struct {
 	cancelFunc context.CancelFunc
 }
 
+//NewScheduler creates a new Schedule object with a cancel func
 func NewScheduler() *Schedule {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Schedule{ctx: ctx, cancelFunc: cancel}
 }
 
+//init initializes the scheduler by creating a new data map, populating the map and processing the tasks
 func (s *Schedule) init() {
 	s.data = map[time.Time][]*Task{}
 	go func() {
+		//start population as a goroutine
 		go s.populate()
+		//check for new to-start tasks every 200ms
 		for range time.Tick(time.Millisecond * 200) {
 			select {
 			case <-s.ctx.Done():
@@ -35,6 +39,7 @@ func (s *Schedule) init() {
 				break
 			}
 
+			//startMonitors for current data set
 			go s.startMonitors()
 			for _, t := range s.getChunks() {
 				if err := t.start(s.ctx); err != nil {
@@ -45,6 +50,7 @@ func (s *Schedule) init() {
 	}()
 }
 
+//add appends the task to the appropriate task slice in data
 func (s *Schedule) add(task *Task) {
 	select {
 	case <-s.ctx.Done():
@@ -55,18 +61,28 @@ func (s *Schedule) add(task *Task) {
 	s.locker.Lock()
 	defer s.locker.Unlock()
 
-	for _, tks := range s.data {
-		for _, tk := range tks {
+	//loop through the data to check if task already exists
+	for k, tks := range s.data {
+		for i, tk := range tks {
 			if tk.ID == task.ID {
+				//if task exists but the start time has changed, remove task from current slice and add it to the newer one
+				if task.StartTime != tk.StartTime {
+					s.data[k] = removeTask(tks, i)
+					goto addTask
+				}
+
 				tk = task
 				return
 			}
 		}
 	}
 
+	//append task to the correct data slice
+addTask:
 	s.data[*task.StartTime] = append(s.data[*task.StartTime], task)
 }
 
+//deleteOlderEntries checks the data set every 15 minutes for any map keys that have exceeded the 1 hour task timeout
 func (s *Schedule) deleteOlderEntries() {
 	for range time.Tick(time.Minute * 15) {
 		select {
@@ -85,6 +101,7 @@ func (s *Schedule) deleteOlderEntries() {
 	}
 }
 
+//getChunks returns the tasks assigned to the current process
 func (s *Schedule) getChunks() []*Task {
 	select {
 	case <-s.ctx.Done():
@@ -104,6 +121,7 @@ func (s *Schedule) getChunks() []*Task {
 	return tasks
 }
 
+//startMonitors starts the monitors for each task after first isolating the unique tasks
 func (s *Schedule) startMonitors() {
 	select {
 	case <-s.ctx.Done():
@@ -140,7 +158,7 @@ func (s *Schedule) startMonitors() {
 				tk := value.(*Task)
 				if !tk.monitorStarted {
 					if err := tk.startMonitor(s.ctx); err != nil {
-						//log.Error("error starting monitor:", err)
+						log.Error("error starting monitor:", err)
 						return true
 					}
 					tk.monitorStarted = true
@@ -153,6 +171,8 @@ func (s *Schedule) startMonitors() {
 	}
 }
 
+//populate spawns the deleteOlderEntries func as a goroutine, creates a goroutine to listen for deleted tasks, and retrieves
+//all tasks from the database
 func (s *Schedule) populate() {
 	go s.deleteOlderEntries()
 
@@ -233,6 +253,7 @@ func (s *Schedule) populate() {
 	}
 }
 
+//getUserTasks retrieves the current user tasks that are appended to the data pool
 func (s *Schedule) getUserTasks(userID string) (tasks []*model.Task) {
 	s.locker.Lock()
 	defer s.locker.Unlock()
@@ -251,6 +272,7 @@ func (s *Schedule) getUserTasks(userID string) (tasks []*model.Task) {
 	return
 }
 
+//getData is a debug method that returns all the data of the scheduler
 func (s *Schedule) getData() map[time.Time][]*Task {
 	s.locker.Lock()
 	defer s.locker.Unlock()

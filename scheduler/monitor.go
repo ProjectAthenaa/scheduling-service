@@ -9,6 +9,7 @@ import (
 
 var monitorClient = getMonitorClient()
 
+//getMonitorClient returns the cient for the monitor controller
 func getMonitorClient() monitorProtos.MonitorClient {
 	conn, err := grpc.Dial("controller.general.svc.cluster.local:3000", grpc.WithInsecure())
 	if err != nil {
@@ -18,6 +19,7 @@ func getMonitorClient() monitorProtos.MonitorClient {
 	return monitorProtos.NewMonitorClient(conn)
 }
 
+//startMonitor provides a convenient wrapper around building the monitor controller payload
 func (t *Task) startMonitor(ctx context.Context) error {
 	newMonitorTask := &monitorProtos.Task{
 		Site:         string(t.Edges.Product[0].Site),

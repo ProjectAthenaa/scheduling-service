@@ -23,6 +23,7 @@ var (
 	json   = jsoniter.ConfigFastest
 )
 
+//Task is a superset of ent.Task, it holds scheduler-specific fields
 type Task struct {
 	*ent.Task
 	monitorChannel    string
@@ -36,6 +37,8 @@ type Task struct {
 	monitorStarted    bool
 }
 
+//chunk takes in a slice of tasks and a chunkSize and returns a new slice of slices that has the length of chunkSize and contains
+//an evenly distributed amount of Task(s)
 func chunk(tasks []*Task, chunkSize int) [][]*Task {
 	if len(tasks) == 0 {
 		return nil
@@ -54,6 +57,7 @@ func chunk(tasks []*Task, chunkSize int) [][]*Task {
 	return divided
 }
 
+//getMonitorID returns the monitor id of a task based on its lookup values
 func (t *Task) getMonitorID() string {
 	v := t.Edges.Product[0]
 	switch v.LookupType {
@@ -81,11 +85,13 @@ func (t *Task) getMonitorID() string {
 	return ""
 }
 
+//start, calls the internal process method as a goroutine
 func (t *Task) start(ctx context.Context) error {
 	go t.process(ctx)
 	return nil
 }
 
+//process is a wrapper around the task controller
 func (t *Task) process(ctx context.Context) {
 	var err error
 	t.ctx, t.cancel = context.WithCancel(ctx)
@@ -106,6 +112,7 @@ func (t *Task) process(ctx context.Context) {
 	t.commandListener()
 }
 
+//getPayload retrieves the initial payload needed to start the task
 func (t *Task) getPayload() *tasks.Client {
 	return &tasks.Client{
 		Command:        module.COMMAND_START,
@@ -114,6 +121,7 @@ func (t *Task) getPayload() *tasks.Client {
 	}
 }
 
+//updateListener listens to updates from the task controller and forwards them to a redis pubsub channel
 func (t *Task) updateListener() {
 	var update *tasks.Status
 	var err error
@@ -138,6 +146,7 @@ func (t *Task) updateListener() {
 	}()
 }
 
+//commandListener listens to commands from the redis pubsub and forwards them to the task controller
 func (t *Task) commandListener() {
 	go func() {
 		pubSub := rdb.Subscribe(t.ctx, fmt.Sprintf("tasks:command:%s", t.controlToken))
@@ -161,6 +170,7 @@ func (t *Task) commandListener() {
 	}()
 }
 
+//setError is a wrapper around sending an error to pubsub
 func (t *Task) setError(err error) {
 	payload, err := json.Marshal(&tasks.Status{
 		Status: module.STATUS_ERROR,
@@ -169,6 +179,7 @@ func (t *Task) setError(err error) {
 	rdb.Publish(t.ctx, fmt.Sprintf("tasks:updates:%s", t.subscriptionToken), string(payload))
 }
 
+//stop cancels the context therefore stopping the task
 func (t *Task) stop() {
 	t.cancel()
 }
