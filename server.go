@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/99designs/gqlgen/graphql/handler"
 	"github.com/99designs/gqlgen/graphql/playground"
-	"github.com/ProjectAthenaa/scheduling-service/graph"
 	"github.com/ProjectAthenaa/scheduling-service/graph/generated"
 	"github.com/ProjectAthenaa/scheduling-service/resolvers"
 	"github.com/ProjectAthenaa/scheduling-service/scheduler"
@@ -57,10 +56,9 @@ func playgroundHandler() gin.HandlerFunc {
 }
 
 func main() {
-	// Setting up Gin
 	r := gin.Default()
 
-	r.Use(authentication.GenGraphQLAuthenticationFunc(core.Base, nil, graph.SendCommand, graph.GetScheduledTasks)())
+	r.Use(authentication.GenGraphQLAuthenticationFunc(core.Base, nil)())
 
 	r.POST("/query", graphqlHandler())
 	r.GET("/", playgroundHandler())
