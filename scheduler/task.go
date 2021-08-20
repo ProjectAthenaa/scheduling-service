@@ -26,15 +26,15 @@ var (
 //Task is a superset of ent.Task, it holds scheduler-specific fields
 type Task struct {
 	*ent.Task
-	monitorChannel    string `json:"monitor_channel"`
-	subscriptionToken string `json:"subscription_token"`
-	controlToken      string `json:"control_token"`
-	userID            string `json:"user_id"`
-	taskID            string `json:"task_id"`
+	monitorChannel    string
+	subscriptionToken string
+	controlToken      string
+	userID            string
+	taskID            string
 	ctx               context.Context
 	cancel            context.CancelFunc
 	backend           tasks.Tasks_TaskClient
-	monitorStarted    bool `json:"monitor_started"`
+	monitorStarted    bool
 	taskStarted       bool
 }
 
@@ -112,7 +112,7 @@ func (t *Task) process(ctx context.Context) {
 
 	t.taskStarted = true
 
-	go t.updateListener()
+	t.updateListener()
 	t.commandListener()
 }
 

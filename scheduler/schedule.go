@@ -12,9 +12,8 @@ import (
 )
 
 type Schedule struct {
-	data   map[time.Time][]*Task
-	locker sync.Mutex
-	//redislocker *redsync.Mutex
+	data       map[time.Time][]*Task
+	locker     sync.Mutex
 	ctx        context.Context
 	cancelFunc context.CancelFunc
 }
@@ -30,10 +29,6 @@ func (s *Schedule) init() {
 	s.data = map[time.Time][]*Task{}
 	s.locker = sync.Mutex{}
 
-	//pool := goredis.NewPool(core.Base.GetRedis("cache"))
-	//rs := redsync.New(pool)
-	//s.redislocker = rs.NewMutex("scheduler:mutex", redsync.WithTries(600000), redsync.WithRetryDelay(time.Millisecond*100))
-
 	go func() {
 		//start population as a goroutine
 		go s.populate()
@@ -48,6 +43,8 @@ func (s *Schedule) init() {
 
 			//startMonitors for current data set
 			go s.startMonitors()
+
+			//start tasks
 			for _, t := range s.getChunks() {
 				if err := t.start(s.ctx); err != nil {
 					log.Error("error starting task", err, "task_id:", t.ID.String())
@@ -119,6 +116,7 @@ func (s *Schedule) getChunks() []*Task {
 	var tasks []*Task
 	s.locker.Lock()
 	defer s.locker.Unlock()
+
 	for k := range s.data {
 		if k.Sub(time.Now()) <= time.Second*1 {
 			chunks := chunk(s.data[k], helpers.GetProcessCount())
@@ -171,6 +169,16 @@ func (s *Schedule) startMonitors() {
 					tk.monitorStarted = true
 				}
 
+				go func() {
+					for _, ch := range chunks {
+						for _, t := range ch {
+							if t.monitorChannel == tk.monitorChannel {
+								t.monitorStarted = true
+							}
+						}
+					}
+				}()
+
 				return true
 			})
 
@@ -192,6 +200,9 @@ func (s *Schedule) populate() {
 				for i, tk := range tasks {
 					if tk.taskID == taskID.Payload {
 						s.data[k] = removeTask(tasks, i)
+						if tk.taskStarted {
+							tk.stop()
+						}
 					}
 				}
 			}
@@ -211,8 +222,9 @@ func (s *Schedule) populate() {
 			GetPg("pg").
 			Task.Query().
 			Where(
-				task.StartTimeGTE(
+				task.StartTimeIn(
 					time.Now(),
+					time.Now().Add(time.Minute*30),
 				),
 			).
 			WithProduct().

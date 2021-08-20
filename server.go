@@ -11,6 +11,7 @@ import (
 	"github.com/ProjectAthenaa/sonic-core/authentication"
 	"github.com/ProjectAthenaa/sonic-core/sonic/core"
 	"github.com/gin-gonic/gin"
+	"log"
 	"os"
 	"os/signal"
 	"syscall"
@@ -20,7 +21,7 @@ const defaultPort = "8080"
 
 func init() {
 	go func() {
-		if os.Getenv("DEBUG") == "1"{
+		if os.Getenv("DEBUG") == "1" {
 			core.Base.GetRedis("cache").Del(context.Background(), "schedulers")
 		}
 
@@ -61,7 +62,9 @@ func main() {
 	r.Use(authentication.GenGraphQLAuthenticationFunc(core.Base, nil)())
 
 	r.POST("/query", graphqlHandler())
+	r.GET("/query", graphqlHandler())
 	r.GET("/", playgroundHandler())
-	r.Run()
+	if err := r.Run(); err != nil{
+		log.Fatal(err)
+	}
 }
-

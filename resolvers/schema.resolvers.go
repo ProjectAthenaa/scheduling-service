@@ -5,7 +5,6 @@ package resolvers
 
 import (
 	"context"
-
 	"github.com/ProjectAthenaa/scheduling-service/graph/generated"
 	"github.com/ProjectAthenaa/scheduling-service/graph/model"
 	"github.com/ProjectAthenaa/scheduling-service/scheduler"
@@ -61,7 +60,7 @@ func (r *subscriptionResolver) TaskUpdates(ctx context.Context, subscriptionToke
 			returningStatus := &model.TaskStatus{
 				Status:      model.Status(module.STATUS_name[int32(status.Status)]),
 				Error:       status.Error,
-				Information: nil,
+				Information: map[string]interface{}{},
 			}
 
 			for k, v := range status.Information {
