@@ -205,8 +205,7 @@ func (s *Schedule) populate() {
 			Task.Query().
 			Where(
 				task.StartTimeGTE(
-					time.Now().
-						Add(-time.Hour * 50000),
+					time.Now(),
 				),
 			).
 			WithProduct().

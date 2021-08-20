@@ -25,9 +25,7 @@ func exit()  {
 
 func TestScheduler(t *testing.T) {
 	defer exit()
-	time.Sleep(time.Minute)
-
-	//var keys []time.Time
+	time.Sleep(time.Second * 5)
 
 	for k := range scheduler.getData(){
 		log.Info(k)
