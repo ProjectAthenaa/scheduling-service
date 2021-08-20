@@ -14,6 +14,7 @@ type Resolver struct{}
 
 var json = jsoniter.ConfigFastest
 
+//contextExtract extracts a potential error and userID from the context
 func contextExtract(ctx context.Context) (*string, error) {
 	if err := ctx.Value("error"); err != nil {
 		return nil, err.(error)

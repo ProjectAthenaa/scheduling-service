@@ -14,6 +14,8 @@ import (
 	tasks "github.com/ProjectAthenaa/sonic-core/task_controller"
 )
 
+//SendCommand is a short lifetime function which accepts a control token and a command, it then calls the PublishCommand
+//method of the scheduler package to publish the command to redis
 func (r *mutationResolver) SendCommand(ctx context.Context, controlToken string, command model.Command) (bool, error) {
 	if _, err := contextExtract(ctx); err != nil {
 		return false, err
@@ -24,6 +26,7 @@ func (r *mutationResolver) SendCommand(ctx context.Context, controlToken string,
 	return true, nil
 }
 
+//GetScheduledTasks returns all tasks that are set to start in the next 30 minutes or are already running
 func (r *queryResolver) GetScheduledTasks(ctx context.Context) ([]*model.Task, error) {
 	userID, err := contextExtract(ctx)
 	if err != nil {
@@ -32,6 +35,7 @@ func (r *queryResolver) GetScheduledTasks(ctx context.Context) ([]*model.Task, e
 	return scheduler.GetUserTasks(*userID), nil
 }
 
+//TaskUpdates returns a channel in which task updates from redis are piped to, you need a valid subscriptionToken to utilize it
 func (r *subscriptionResolver) TaskUpdates(ctx context.Context, subscriptionToken string) (<-chan *model.TaskStatus, error) {
 	if _, err := contextExtract(ctx); err != nil {
 		return nil, err
