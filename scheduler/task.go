@@ -26,15 +26,16 @@ var (
 //Task is a superset of ent.Task, it holds scheduler-specific fields
 type Task struct {
 	*ent.Task
-	monitorChannel    string
-	subscriptionToken string
-	controlToken      string
-	userID            string
-	taskID            string
+	monitorChannel    string `json:"monitor_channel"`
+	subscriptionToken string `json:"subscription_token"`
+	controlToken      string `json:"control_token"`
+	userID            string `json:"user_id"`
+	taskID            string `json:"task_id"`
 	ctx               context.Context
 	cancel            context.CancelFunc
 	backend           tasks.Tasks_TaskClient
-	monitorStarted    bool
+	monitorStarted    bool `json:"monitor_started"`
+	taskStarted       bool
 }
 
 //chunk takes in a slice of tasks and a chunkSize and returns a new slice of slices that has the length of chunkSize and contains
@@ -108,6 +109,8 @@ func (t *Task) process(ctx context.Context) {
 		t.stop()
 		return
 	}
+
+	t.taskStarted = true
 
 	go t.updateListener()
 	t.commandListener()
@@ -183,4 +186,5 @@ func (t *Task) setError(err error) {
 //stop cancels the context therefore stopping the task
 func (t *Task) stop() {
 	t.cancel()
+	t.taskStarted = false
 }

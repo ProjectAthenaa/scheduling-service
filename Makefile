@@ -1,0 +1,2 @@
+compileGQL:
+	go generate

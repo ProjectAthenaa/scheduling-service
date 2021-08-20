@@ -12,8 +12,9 @@ import (
 )
 
 type Schedule struct {
-	data       map[time.Time][]*Task
-	locker     sync.Mutex
+	data   map[time.Time][]*Task
+	locker sync.Mutex
+	//redislocker *redsync.Mutex
 	ctx        context.Context
 	cancelFunc context.CancelFunc
 }
@@ -27,6 +28,12 @@ func NewScheduler() *Schedule {
 //init initializes the scheduler by creating a new data map, populating the map and processing the tasks
 func (s *Schedule) init() {
 	s.data = map[time.Time][]*Task{}
+	s.locker = sync.Mutex{}
+
+	//pool := goredis.NewPool(core.Base.GetRedis("cache"))
+	//rs := redsync.New(pool)
+	//s.redislocker = rs.NewMutex("scheduler:mutex", redsync.WithTries(600000), redsync.WithRetryDelay(time.Millisecond*100))
+
 	go func() {
 		//start population as a goroutine
 		go s.populate()

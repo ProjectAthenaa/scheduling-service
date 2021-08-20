@@ -2,6 +2,7 @@ package resolvers
 
 import (
 	"context"
+	"errors"
 	jsoniter "github.com/json-iterator/go"
 )
 
@@ -13,6 +14,15 @@ type Resolver struct{}
 
 var json = jsoniter.ConfigFastest
 
-func getUserIDFromContext(ctx context.Context) string {
-	return ctx.Value("user_id").(string)
+func contextExtract(ctx context.Context) (*string, error) {
+	if err := ctx.Value("error"); err != nil {
+		return nil, err.(error)
+	}
+
+	if userID := ctx.Value("userID"); userID != nil {
+		id := userID.(string)
+		return &id, nil
+	}
+
+	return nil, errors.New("user_not_found")
 }

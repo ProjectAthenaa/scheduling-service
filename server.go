@@ -5,12 +5,13 @@ import (
 	"fmt"
 	"github.com/99designs/gqlgen/graphql/handler"
 	"github.com/99designs/gqlgen/graphql/playground"
+	"github.com/ProjectAthenaa/scheduling-service/graph"
 	"github.com/ProjectAthenaa/scheduling-service/graph/generated"
 	"github.com/ProjectAthenaa/scheduling-service/resolvers"
 	"github.com/ProjectAthenaa/scheduling-service/scheduler"
+	"github.com/ProjectAthenaa/sonic-core/authentication"
 	"github.com/ProjectAthenaa/sonic-core/sonic/core"
-	"log"
-	"net/http"
+	"github.com/gin-gonic/gin"
 	"os"
 	"os/signal"
 	"syscall"
@@ -35,17 +36,34 @@ func init() {
 	}()
 }
 
-func main() {
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = defaultPort
+// Defining the Graphql handler
+func graphqlHandler() gin.HandlerFunc {
+	// NewExecutableSchema and Config are in the generated.go file
+	// Resolver is in the resolver.go file
+	h := handler.NewDefaultServer(generated.NewExecutableSchema(generated.Config{Resolvers: &resolvers.Resolver{}}))
+
+	return func(c *gin.Context) {
+		h.ServeHTTP(c.Writer, c.Request)
 	}
-
-	srv := handler.NewDefaultServer(generated.NewExecutableSchema(generated.Config{Resolvers: &resolvers.Resolver{}}))
-
-	http.Handle("/", playground.Handler("GraphQL playground", "/query"))
-	http.Handle("/query", srv)
-
-	log.Printf("connect to http://localhost:%s/ for GraphQL playground", port)
-	log.Fatal(http.ListenAndServe(":"+port, nil))
 }
+
+// Defining the Playground handler
+func playgroundHandler() gin.HandlerFunc {
+	h := playground.Handler("GraphQL", "/query")
+
+	return func(c *gin.Context) {
+		h.ServeHTTP(c.Writer, c.Request)
+	}
+}
+
+func main() {
+	// Setting up Gin
+	r := gin.Default()
+
+	r.Use(authentication.GenGraphQLAuthenticationFunc(core.Base, nil, graph.SendCommand, graph.GetScheduledTasks)())
+
+	r.POST("/query", graphqlHandler())
+	r.GET("/", playgroundHandler())
+	r.Run()
+}
+
