@@ -25,6 +25,7 @@ func Stop() {
 	scheduler.cancelFunc()
 }
 
+//Subscribe returns a redis pubSub struct if the subscription token is valid
 func Subscribe(ctx context.Context, token string) (*redis.PubSub, error) {
 	scheduler.locker.Lock()
 	defer scheduler.locker.Unlock()
@@ -39,6 +40,7 @@ func Subscribe(ctx context.Context, token string) (*redis.PubSub, error) {
 	return nil, errors.New("task_not_found")
 }
 
+//PublishCommand publishes the given command to the channel given, if the task exists
 func PublishCommand(ctx context.Context, token string, command model.Command) error {
 	scheduler.locker.Lock()
 	defer scheduler.locker.Unlock()
