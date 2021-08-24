@@ -49,7 +49,7 @@ func graphqlHandler() gin.HandlerFunc {
 
 // Defining the Playground handler
 func playgroundHandler() gin.HandlerFunc {
-	h := playground.Handler("GraphQL", "/query")
+	h := playground.Handler("GraphQL", "/tasks")
 
 	return func(c *gin.Context) {
 		h.ServeHTTP(c.Writer, c.Request)
@@ -61,9 +61,8 @@ func main() {
 
 	r.Use(authentication.GenGraphQLAuthenticationFunc(core.Base, nil)())
 
-	r.POST("/query", graphqlHandler())
-	r.GET("/query", graphqlHandler())
-	r.GET("/", playgroundHandler())
+	r.Any("/tasks", graphqlHandler())
+	r.GET("/tasks/playground", playgroundHandler())
 	if err := r.Run(); err != nil{
 		log.Fatal(err)
 	}
