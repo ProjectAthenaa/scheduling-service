@@ -1,4 +1,3 @@
-// +build ignore
 
 package main
 
@@ -12,9 +11,9 @@ import (
 //go:generate go run github.com/99designs/gqlgen run
 //go:generate go run generate.go
 
-//func main() {
-//	genOperationNames()
-//}
+func main() {
+	genOperationNames()
+}
 
 func genOperationNames() {
 	var operationRe = regexp.MustCompile(`type (Query|Mutation|Subscription).*{\s+(\w+)`)

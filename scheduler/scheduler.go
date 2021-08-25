@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/ProjectAthenaa/scheduling-service/graph/model"
+	"github.com/ProjectAthenaa/scheduling-service/helpers"
 	"github.com/ProjectAthenaa/sonic-core/sonic/core"
 	"github.com/go-redis/redis/v8"
 )
@@ -26,18 +27,19 @@ func Stop() {
 }
 
 //Subscribe returns a redis pubSub struct if the subscription token is valid
-func Subscribe(ctx context.Context, token string) (*redis.PubSub, error) {
+func Subscribe(ctx context.Context, tokens ...string) (*redis.PubSub, error) {
+	var channelNames []string
 	scheduler.locker.Lock()
 	defer scheduler.locker.Unlock()
 	for _, tks := range scheduler.data {
 		for _, tk := range tks {
-			if tk.subscriptionToken == token {
-				return core.Base.GetRedis("cache").Subscribe(ctx, fmt.Sprintf("tasks:updates:%s", token)), nil
+			if helpers.SliceContains(tokens, tk.subscriptionToken) {
+				channelNames = append(channelNames, fmt.Sprintf("tasks:updates:%s", tk.subscriptionToken))
 			}
 		}
 	}
 
-	return nil, errors.New("task_not_found")
+	return core.Base.GetRedis("cache").Subscribe(ctx, channelNames...), nil
 }
 
 //PublishCommand publishes the given command to the channel given, if the task exists

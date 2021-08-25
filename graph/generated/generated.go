@@ -55,7 +55,7 @@ type ComplexityRoot struct {
 	}
 
 	Subscription struct {
-		TaskUpdates func(childComplexity int, subscriptionToken string) int
+		TaskUpdates func(childComplexity int, subscriptionTokens []string) int
 	}
 
 	Task struct {
@@ -69,6 +69,7 @@ type ComplexityRoot struct {
 		Error       func(childComplexity int) int
 		Information func(childComplexity int) int
 		Status      func(childComplexity int) int
+		TaskID      func(childComplexity int) int
 	}
 }
 
@@ -79,7 +80,7 @@ type QueryResolver interface {
 	GetScheduledTasks(ctx context.Context) ([]*model.Task, error)
 }
 type SubscriptionResolver interface {
-	TaskUpdates(ctx context.Context, subscriptionToken string) (<-chan *model.TaskStatus, error)
+	TaskUpdates(ctx context.Context, subscriptionTokens []string) (<-chan *model.TaskStatus, error)
 }
 
 type executableSchema struct {
@@ -126,7 +127,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			return 0, false
 		}
 
-		return e.complexity.Subscription.TaskUpdates(childComplexity, args["SubscriptionToken"].(string)), true
+		return e.complexity.Subscription.TaskUpdates(childComplexity, args["subscriptionTokens"].([]string)), true
 
 	case "Task.ControlToken":
 		if e.complexity.Task.ControlToken == nil {
@@ -176,6 +177,13 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.TaskStatus.Status(childComplexity), true
+
+	case "TaskStatus.TaskID":
+		if e.complexity.TaskStatus.TaskID == nil {
+			break
+		}
+
+		return e.complexity.TaskStatus.TaskID(childComplexity), true
 
 	}
 	return 0, false
@@ -297,6 +305,7 @@ enum STATUS{
 }
 
 type TaskStatus{
+    TaskID: String!
     Status: STATUS!
     Error: String
     Information: Map!
@@ -318,7 +327,7 @@ type Mutation{
 }
 
 type Subscription {
-    taskUpdates(SubscriptionToken: String!): TaskStatus!
+    taskUpdates(subscriptionTokens: [String!]!): TaskStatus!
 }`, BuiltIn: false},
 }
 var parsedSchema = gqlparser.MustLoadSchema(sources...)
@@ -369,15 +378,15 @@ func (ec *executionContext) field_Query___type_args(ctx context.Context, rawArgs
 func (ec *executionContext) field_Subscription_taskUpdates_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 	args := map[string]interface{}{}
-	var arg0 string
-	if tmp, ok := rawArgs["SubscriptionToken"]; ok {
-		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("SubscriptionToken"))
-		arg0, err = ec.unmarshalNString2string(ctx, tmp)
+	var arg0 []string
+	if tmp, ok := rawArgs["subscriptionTokens"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("subscriptionTokens"))
+		arg0, err = ec.unmarshalNString2ᚕstringᚄ(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
 	}
-	args["SubscriptionToken"] = arg0
+	args["subscriptionTokens"] = arg0
 	return args, nil
 }
 
@@ -592,7 +601,7 @@ func (ec *executionContext) _Subscription_taskUpdates(ctx context.Context, field
 	fc.Args = args
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Subscription().TaskUpdates(rctx, args["SubscriptionToken"].(string))
+		return ec.resolvers.Subscription().TaskUpdates(rctx, args["subscriptionTokens"].([]string))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -757,6 +766,41 @@ func (ec *executionContext) _Task_StartTime(ctx context.Context, field graphql.C
 	res := resTmp.(time.Time)
 	fc.Result = res
 	return ec.marshalNTime2timeᚐTime(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _TaskStatus_TaskID(ctx context.Context, field graphql.CollectedField, obj *model.TaskStatus) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:     "TaskStatus",
+		Field:      field,
+		Args:       nil,
+		IsMethod:   false,
+		IsResolver: false,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.TaskID, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _TaskStatus_Status(ctx context.Context, field graphql.CollectedField, obj *model.TaskStatus) (ret graphql.Marshaler) {
@@ -2104,6 +2148,11 @@ func (ec *executionContext) _TaskStatus(ctx context.Context, sel ast.SelectionSe
 		switch field.Name {
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("TaskStatus")
+		case "TaskID":
+			out.Values[i] = ec._TaskStatus_TaskID(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
 		case "Status":
 			out.Values[i] = ec._TaskStatus_Status(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -2441,6 +2490,36 @@ func (ec *executionContext) marshalNString2string(ctx context.Context, sel ast.S
 		}
 	}
 	return res
+}
+
+func (ec *executionContext) unmarshalNString2ᚕstringᚄ(ctx context.Context, v interface{}) ([]string, error) {
+	var vSlice []interface{}
+	if v != nil {
+		if tmp1, ok := v.([]interface{}); ok {
+			vSlice = tmp1
+		} else {
+			vSlice = []interface{}{v}
+		}
+	}
+	var err error
+	res := make([]string, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNString2string(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) marshalNString2ᚕstringᚄ(ctx context.Context, sel ast.SelectionSet, v []string) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	for i := range v {
+		ret[i] = ec.marshalNString2string(ctx, sel, v[i])
+	}
+
+	return ret
 }
 
 func (ec *executionContext) marshalNTask2ᚕᚖgithubᚗcomᚋProjectAthenaaᚋschedulingᚑserviceᚋgraphᚋmodelᚐTask(ctx context.Context, sel ast.SelectionSet, v []*model.Task) graphql.Marshaler {

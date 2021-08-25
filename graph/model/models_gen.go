@@ -17,6 +17,7 @@ type Task struct {
 }
 
 type TaskStatus struct {
+	TaskID      string                 `json:"TaskID"`
 	Status      Status                 `json:"Status"`
 	Error       *string                `json:"Error"`
 	Information map[string]interface{} `json:"Information"`

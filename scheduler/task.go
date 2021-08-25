@@ -139,6 +139,8 @@ func (t *Task) updateListener() {
 				return
 			}
 
+			update.Information["taskID"] = t.taskID
+
 			payload, err = json.Marshal(&update)
 			if err != nil {
 				log.Error("error marshaling update", err)
