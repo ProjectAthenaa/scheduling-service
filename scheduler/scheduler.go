@@ -27,7 +27,7 @@ func Stop() {
 }
 
 //Subscribe returns a redis pubSub struct if the subscription token is valid
-func Subscribe(ctx context.Context, tokens ...string) (*redis.PubSub, error) {
+func Subscribe(ctx context.Context, tokens ...string) (*redis.PubSub, func() error, error) {
 	var channelNames []string
 	scheduler.locker.Lock()
 	defer scheduler.locker.Unlock()
@@ -39,7 +39,16 @@ func Subscribe(ctx context.Context, tokens ...string) (*redis.PubSub, error) {
 		}
 	}
 
-	return core.Base.GetRedis("cache").Subscribe(ctx, channelNames...), nil
+	pubsub := core.Base.GetRedis("cache").Subscribe(ctx, channelNames...)
+
+	closePubSub := func() error {
+		if err := pubsub.Unsubscribe(ctx, channelNames...); err != nil {
+			return err
+		}
+		return nil
+	}
+
+	return core.Base.GetRedis("cache").Subscribe(ctx, channelNames...), closePubSub, nil
 }
 
 //PublishCommand publishes the given command to the channel given, if the task exists

@@ -14,7 +14,9 @@ import (
 	"github.com/json-iterator/go"
 	"github.com/prometheus/common/log"
 	"sort"
+	"strconv"
 	"strings"
+	"time"
 )
 
 var (
@@ -138,7 +140,7 @@ func (t *Task) updateListener() {
 				t.stop()
 				return
 			}
-
+			update.Information["timestamp"] = strconv.Itoa(int(time.Now().Unix()))
 			update.Information["taskID"] = t.taskID
 
 			payload, err = json.Marshal(&update)

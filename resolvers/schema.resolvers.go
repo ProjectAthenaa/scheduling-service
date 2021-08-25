@@ -37,13 +37,14 @@ func (r *subscriptionResolver) TaskUpdates(ctx context.Context, subscriptionToke
 		return nil, err
 	}
 	updates := make(chan *model.TaskStatus)
-	pubSub, err := scheduler.Subscribe(ctx, subscriptionTokens...)
+	pubSub, closePubSub, err := scheduler.Subscribe(ctx, subscriptionTokens...)
 	if err != nil {
 		return nil, err
 	}
 	go func() {
 		var status tasks.Status
 		defer pubSub.Close()
+		defer closePubSub()
 		for update := range pubSub.Channel() {
 			if err = json.Unmarshal([]byte(update.Payload), &status); err != nil {
 				updates <- &model.TaskStatus{
