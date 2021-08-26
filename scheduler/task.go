@@ -99,6 +99,8 @@ func (t *Task) process(ctx context.Context) {
 	resp, err := client.Task(t.ctx, t.getPayload())
 	if err != nil {
 		log.Error("start task: ", err, t.ID)
+		t.taskStarted = false
+		return
 	}
 
 	if !resp.Started {
