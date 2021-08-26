@@ -9,9 +9,8 @@ import (
 	"github.com/ProjectAthenaa/scheduling-service/graph/generated"
 	"github.com/ProjectAthenaa/scheduling-service/graph/model"
 	"github.com/ProjectAthenaa/scheduling-service/scheduler"
-	module "github.com/ProjectAthenaa/sonic-core/protos"
+	module "github.com/ProjectAthenaa/sonic-core/protos/module"
 	"github.com/ProjectAthenaa/sonic-core/sonic"
-	tasks "github.com/ProjectAthenaa/sonic-core/task_controller"
 )
 
 func (r *mutationResolver) SendCommand(ctx context.Context, controlToken string, command model.Command) (bool, error) {
@@ -42,7 +41,7 @@ func (r *subscriptionResolver) TaskUpdates(ctx context.Context, subscriptionToke
 		return nil, err
 	}
 	go func() {
-		var status tasks.Status
+		var status module.Status
 		defer pubSub.Close()
 		defer closePubSub()
 		for update := range pubSub.Channel() {

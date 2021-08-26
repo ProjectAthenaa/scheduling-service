@@ -1,7 +1,7 @@
 package helpers
 
 import (
-	controller "github.com/ProjectAthenaa/sonic-core/task_controller"
+	controller "github.com/ProjectAthenaa/sonic-core/protos/taskController"
 	"google.golang.org/grpc"
 	"runtime"
 )

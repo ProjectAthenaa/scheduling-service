@@ -2,19 +2,16 @@ package scheduler
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"github.com/ProjectAthenaa/scheduling-service/helpers"
-	module "github.com/ProjectAthenaa/sonic-core/protos"
-	"github.com/ProjectAthenaa/sonic-core/sonic"
+	"github.com/ProjectAthenaa/sonic-core/protos/module"
+	tasks "github.com/ProjectAthenaa/sonic-core/protos/taskController"
 	"github.com/ProjectAthenaa/sonic-core/sonic/core"
 	"github.com/ProjectAthenaa/sonic-core/sonic/database/ent"
 	"github.com/ProjectAthenaa/sonic-core/sonic/database/ent/product"
-	tasks "github.com/ProjectAthenaa/sonic-core/task_controller"
 	"github.com/json-iterator/go"
 	"github.com/prometheus/common/log"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -35,7 +32,6 @@ type Task struct {
 	taskID            string
 	ctx               context.Context
 	cancel            context.CancelFunc
-	backend           tasks.Tasks_TaskClient
 	monitorStarted    bool
 	taskStarted       bool
 	startTime         time.Time
@@ -100,97 +96,26 @@ func (t *Task) start(ctx context.Context) error {
 func (t *Task) process(ctx context.Context) {
 	var err error
 	t.ctx, t.cancel = context.WithCancel(ctx)
-	t.backend, err = client.Task(t.ctx)
+	resp, err := client.Task(t.ctx, t.getPayload())
 	if err != nil {
-		t.setError(err)
-		t.stop()
-		return
+		log.Error("start task: ", err, t.ID)
 	}
 
-	if err = t.backend.Send(t.getPayload()); err != nil {
-		t.setError(err)
-		t.stop()
-		return
+	if !resp.Started {
+		log.Error("Task ", t.ID, " didnt start")
 	}
-
-	t.taskStarted = true
-	t.startTime = time.Now()
-	t.updateListener()
-	t.commandListener()
 }
 
 //getPayload retrieves the initial payload needed to start the task
-func (t *Task) getPayload() *tasks.Client {
-	return &tasks.Client{
-		Command:        module.COMMAND_START,
-		TaskID:         &t.taskID,
-		MonitorChannel: &t.monitorChannel,
+func (t *Task) getPayload() *tasks.StartRequest {
+	return &tasks.StartRequest{
+		TaskID: t.taskID,
+		Channels: &module.Channels{
+			MonitorChannel:  t.monitorChannel,
+			UpdatesChannel:  t.subscriptionToken,
+			CommandsChannel: t.controlToken,
+		},
 	}
 }
 
-//updateListener listens to updates from the task controller and forwards them to a redis pubsub channel
-func (t *Task) updateListener() {
-	var update *tasks.Status
-	var err error
-	var payload []byte
-	go func() {
-		for {
-			update, err = t.backend.Recv()
-			if err != nil {
-				log.Error("receive update error: ", err)
-				t.stop()
-				return
-			}
-			update.Information["timestamp"] = strconv.Itoa(int(time.Now().Unix()))
-			update.Information["taskID"] = t.taskID
-			update.Information["startedAt"] = strconv.Itoa(int(t.startTime.Unix()))
 
-			payload, err = json.Marshal(&update)
-			if err != nil {
-				log.Error("error marshaling update", err)
-				t.setError(err)
-			}
-
-			rdb.Publish(t.ctx, fmt.Sprintf("tasks:updates:%s", t.subscriptionToken), string(payload))
-		}
-	}()
-}
-
-//commandListener listens to commands from the redis pubsub and forwards them to the task controller
-func (t *Task) commandListener() {
-	go func() {
-		pubSub := rdb.Subscribe(t.ctx, fmt.Sprintf("tasks:commands:%s", t.controlToken))
-		commands := pubSub.Channel()
-		defer pubSub.Close()
-
-		for cmd := range commands {
-			payload := cmd.Payload
-
-			if err := t.backend.Send(&tasks.Client{
-				Command: module.COMMAND(module.COMMAND_value[payload]),
-			}); err != nil {
-				log.Error("error sending update:", err)
-				t.setError(err)
-			}
-
-			if payload == "STOP" {
-				t.stop()
-			}
-		}
-	}()
-}
-
-//setError is a wrapper around sending an error to pubsub
-func (t *Task) setError(err error) {
-	payload, err := json.Marshal(&tasks.Status{
-		Status: module.STATUS_ERROR,
-		Error:  sonic.ErrString(errors.New(err.Error())),
-	})
-	rdb.Publish(t.ctx, fmt.Sprintf("tasks:updates:%s", t.subscriptionToken), string(payload))
-}
-
-//stop cancels the context therefore stopping the task
-func (t *Task) stop() {
-	t.cancel()
-	t.taskStarted = false
-}
