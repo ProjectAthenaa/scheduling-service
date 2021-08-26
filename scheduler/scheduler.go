@@ -58,7 +58,7 @@ func PublishCommand(ctx context.Context, token string, command model.Command) er
 	for _, tks := range scheduler.data {
 		for _, tk := range tks {
 			if tk.controlToken == token {
-				core.Base.GetRedis("cache").Publish(ctx, fmt.Sprintf("tasks:command:%s", token), command)
+				core.Base.GetRedis("cache").Publish(ctx, fmt.Sprintf("tasks:commands:%s", token), command)
 				return nil
 			}
 		}

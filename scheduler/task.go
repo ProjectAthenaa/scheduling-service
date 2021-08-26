@@ -38,6 +38,7 @@ type Task struct {
 	backend           tasks.Tasks_TaskClient
 	monitorStarted    bool
 	taskStarted       bool
+	startTime         time.Time
 }
 
 //chunk takes in a slice of tasks and a chunkSize and returns a new slice of slices that has the length of chunkSize and contains
@@ -113,7 +114,7 @@ func (t *Task) process(ctx context.Context) {
 	}
 
 	t.taskStarted = true
-
+	t.startTime = time.Now()
 	t.updateListener()
 	t.commandListener()
 }
@@ -142,6 +143,7 @@ func (t *Task) updateListener() {
 			}
 			update.Information["timestamp"] = strconv.Itoa(int(time.Now().Unix()))
 			update.Information["taskID"] = t.taskID
+			update.Information["startedAt"] = strconv.Itoa(int(t.startTime.Unix()))
 
 			payload, err = json.Marshal(&update)
 			if err != nil {
@@ -157,7 +159,7 @@ func (t *Task) updateListener() {
 //commandListener listens to commands from the redis pubsub and forwards them to the task controller
 func (t *Task) commandListener() {
 	go func() {
-		pubSub := rdb.Subscribe(t.ctx, fmt.Sprintf("tasks:command:%s", t.controlToken))
+		pubSub := rdb.Subscribe(t.ctx, fmt.Sprintf("tasks:commands:%s", t.controlToken))
 		commands := pubSub.Channel()
 		defer pubSub.Close()
 
