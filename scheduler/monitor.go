@@ -2,7 +2,7 @@ package scheduler
 
 import (
 	"context"
-	monitorProtos "github.com/ProjectAthenaa/sonic-core/monitor_controller"
+	monitorProtos "github.com/ProjectAthenaa/sonic-core/protos/monitorController"
 	"github.com/ProjectAthenaa/sonic-core/sonic/database/ent/product"
 	"google.golang.org/grpc"
 )
