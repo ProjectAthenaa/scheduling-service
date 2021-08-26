@@ -2,7 +2,6 @@ package scheduler
 
 import (
 	"context"
-	"fmt"
 	"github.com/ProjectAthenaa/scheduling-service/graph/model"
 	"github.com/ProjectAthenaa/scheduling-service/helpers"
 	"github.com/ProjectAthenaa/sonic-core/sonic/core"
@@ -202,7 +201,7 @@ func (s *Schedule) populate() {
 					if tk.taskID == taskID.Payload {
 						s.data[k] = removeTask(tasks, i)
 						if tk.taskStarted {
-							core.Base.GetRedis("cache").Publish(s.ctx, fmt.Sprintf("tasks:commands:%s", tk.controlToken), "STOP")
+							tk.stop()
 						}
 					}
 				}

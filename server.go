@@ -59,11 +59,11 @@ func playgroundHandler() gin.HandlerFunc {
 func main() {
 	r := gin.Default()
 
-	r.Use(authentication.GenGraphQLAuthenticationFunc(core.Base, nil)())
+	r.Use(authentication.GenGraphQLAuthenticationFunc(core.Base, "/tasks", nil)())
 
 	r.Any("/tasks", graphqlHandler())
 	r.GET("/tasks/playground", playgroundHandler())
-	if err := r.Run(); err != nil{
+	if err := r.Run(); err != nil {
 		log.Fatal(err)
 	}
 }

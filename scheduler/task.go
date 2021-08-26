@@ -106,7 +106,6 @@ func (t *Task) process(ctx context.Context) {
 	}
 
 	t.taskStarted = resp.Started
-
 }
 
 //getPayload retrieves the initial payload needed to start the task
@@ -119,4 +118,8 @@ func (t *Task) getPayload() *tasks.StartRequest {
 			CommandsChannel: t.controlToken,
 		},
 	}
+}
+
+func (t *Task) stop() {
+	core.Base.GetRedis("cache").Publish(t.ctx, fmt.Sprintf("tasks:commands:%s", t.controlToken), "STOP")
 }
