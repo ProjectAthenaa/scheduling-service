@@ -32,6 +32,8 @@ github.com/Joker/hpp v1.0.0/go.mod h1:8x5n+M1Hp5hC0g8okX3sR3vFQwynaX/UgSOM9MeBKz
 github.com/OneOfOne/xxhash v1.2.2/go.mod h1:HSdplMjZKSmBqAxg5vPj2TmRDmfkzw+cTzAElWljhcU=
 github.com/ProjectAthenaa/sonic-core v0.0.0-20210826094351-3b266ef6b5bd h1:h12CdbsMWZa0XMQUzBynJu0pgXAcriCJcreiKuVJH+o=
 github.com/ProjectAthenaa/sonic-core v0.0.0-20210826094351-3b266ef6b5bd/go.mod h1:7YFLsCMmPTm2VE+x3Z8mcx/IwmZiZrCrqlqFKIludR4=
+github.com/ProjectAthenaa/sonic-core v0.0.0-20210826145817-7fe182b6ee5d h1:OASmzrTSOI14n2nBWwEfcuQpiOZWknfLjvdMYB1+GyE=
+github.com/ProjectAthenaa/sonic-core v0.0.0-20210826145817-7fe182b6ee5d/go.mod h1:7YFLsCMmPTm2VE+x3Z8mcx/IwmZiZrCrqlqFKIludR4=
 github.com/Shopify/goreferrer v0.0.0-20181106222321-ec9c9a553398/go.mod h1:a1uqRtAwp2Xwc6WNPJEufxJ7fx3npB4UV/JOLmbu5I0=
 github.com/agnivade/levenshtein v1.0.1/go.mod h1:CURSv5d9Uaml+FovSIICkLbAUZ9S4RqaHDIsdSBg7lM=
 github.com/agnivade/levenshtein v1.0.3/go.mod h1:4SFRZbbXWLF4MU1T9Qg0pGgH3Pjs+t6ie5efyrwRJXs=
