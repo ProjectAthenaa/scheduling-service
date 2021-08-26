@@ -104,6 +104,9 @@ func (t *Task) process(ctx context.Context) {
 	if !resp.Started {
 		log.Error("Task ", t.ID, " didnt start")
 	}
+
+	t.taskStarted = resp.Started
+
 }
 
 //getPayload retrieves the initial payload needed to start the task
@@ -117,5 +120,3 @@ func (t *Task) getPayload() *tasks.StartRequest {
 		},
 	}
 }
-
-
