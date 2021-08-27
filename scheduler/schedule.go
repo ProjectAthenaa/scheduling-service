@@ -222,14 +222,13 @@ func (s *Schedule) populate() {
 			GetPg("pg").
 			Task.Query().
 			Where(
-				task.StartTimeIn(
+				task.StartTimeGTE(
 					time.Now(),
-					time.Now().Add(time.Minute*30),
 				),
+				task.StartTimeLTE(time.Now().Add(time.Minute*30)),
 			).
 			WithProduct().
 			All(s.ctx)
-
 		if err != nil {
 			continue
 		}
