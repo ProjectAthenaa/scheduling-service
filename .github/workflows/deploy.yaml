@@ -29,16 +29,16 @@ jobs:
           token: ${{ secrets.DIGITALOCEAN_API_KEY }}
 
       - name: Build container image
-        run: DOCKER_BUILDKIT=1 docker build --build-arg GH_TOKEN=${{ secrets.KIWI_TOKEN }} -t registry.digitalocean.com/athenabot/antibots/captcha:latest .
+        run: DOCKER_BUILDKIT=1 docker build --build-arg GH_TOKEN=${{ secrets.KIWI_TOKEN }} -t registry.digitalocean.com/athenabot/scheduling-service:latest .
 
       - name: Log in to DigitalOcean Container Registry with short-lived credentials and Push Image
-        run: doctl registry login --expiry-seconds 1200 && docker push registry.digitalocean.com/athenabot/antibots/captcha:latest
+        run: doctl registry login --expiry-seconds 1200 && docker push registry.digitalocean.com/athenabot/scheduling-service:latest
 
       - name: Save DigitalOcean kubeconfig with short-lived credentials
         run: doctl kubernetes cluster kubeconfig save --expiry-seconds 600 athena
 
       - name: Deploy to DigitalOcean Kubernetes
-        run: kubectl rollout restart deployments captcha -n antibots
+        run: kubectl rollout restart deployments captcha -n general
 
       - name: Verify deployment
-        run: kubectl rollout status deployments captcha -n antibots
+        run: kubectl rollout status deployments captcha -n general
