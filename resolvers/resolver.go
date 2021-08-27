@@ -3,6 +3,7 @@ package resolvers
 import (
 	"context"
 	"errors"
+	"fmt"
 	jsoniter "github.com/json-iterator/go"
 )
 
@@ -21,7 +22,7 @@ func contextExtract(ctx context.Context) (*string, error) {
 	}
 
 	if userID := ctx.Value("userID"); userID != nil {
-		id := userID.(string)
+		id := fmt.Sprint(userID)
 		return &id, nil
 	}
 
