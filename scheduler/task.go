@@ -18,7 +18,6 @@ import (
 
 var (
 	client = helpers.GetTaskControllerClient()
-	rdb    = core.Base.GetRedis("cache")
 	json   = jsoniter.ConfigFastest
 )
 

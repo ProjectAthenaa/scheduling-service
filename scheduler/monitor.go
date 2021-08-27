@@ -3,6 +3,7 @@ package scheduler
 import (
 	"context"
 	monitorProtos "github.com/ProjectAthenaa/sonic-core/protos/monitorController"
+	"github.com/ProjectAthenaa/sonic-core/sonic/core"
 	"github.com/ProjectAthenaa/sonic-core/sonic/database/ent/product"
 	"google.golang.org/grpc"
 )
@@ -23,7 +24,7 @@ func getMonitorClient() monitorProtos.MonitorClient {
 func (t *Task) startMonitor(ctx context.Context) error {
 	//checks to see whether there is at least one subscriber for given key,
 	//if there is it means the monitor has already started
-	if subCount, err := rdb.PubSubNumSub(t.ctx, t.monitorChannel).Result(); err != nil {
+	if subCount, err := core.Base.GetRedis("cache").PubSubNumSub(t.ctx, t.monitorChannel).Result(); err != nil {
 		if subCount[t.monitorChannel] >= 1 {
 			return nil
 		}
