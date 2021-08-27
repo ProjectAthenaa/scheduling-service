@@ -38,7 +38,7 @@ jobs:
         run: doctl kubernetes cluster kubeconfig save --expiry-seconds 600 athena
 
       - name: Deploy to DigitalOcean Kubernetes
-        run: kubectl rollout restart deployments captcha -n general
+        run: kubectl rollout restart deployments scheduling -n general
 
       - name: Verify deployment
-        run: kubectl rollout status deployments captcha -n general
+        run: kubectl rollout status deployments scheduling -n general
