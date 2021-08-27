@@ -5,6 +5,7 @@ import (
 	monitorProtos "github.com/ProjectAthenaa/sonic-core/protos/monitorController"
 	"github.com/ProjectAthenaa/sonic-core/sonic/core"
 	"github.com/ProjectAthenaa/sonic-core/sonic/database/ent/product"
+	"github.com/prometheus/common/log"
 	"google.golang.org/grpc"
 )
 
@@ -24,6 +25,7 @@ func getMonitorClient() monitorProtos.MonitorClient {
 func (t *Task) startMonitor(ctx context.Context) error {
 	//checks to see whether there is at least one subscriber for given key,
 	//if there is it means the monitor has already started
+	log.Info("Monitor Channel: ", t.monitorChannel)
 	if subCount, err := core.Base.GetRedis("cache").PubSubNumSub(t.ctx, t.monitorChannel).Result(); err != nil {
 		if subCount[t.monitorChannel] >= 1 {
 			return nil
