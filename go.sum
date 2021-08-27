@@ -36,6 +36,8 @@ github.com/ProjectAthenaa/sonic-core v0.0.0-20210826145817-7fe182b6ee5d h1:OASmz
 github.com/ProjectAthenaa/sonic-core v0.0.0-20210826145817-7fe182b6ee5d/go.mod h1:7YFLsCMmPTm2VE+x3Z8mcx/IwmZiZrCrqlqFKIludR4=
 github.com/ProjectAthenaa/sonic-core v0.0.0-20210827104448-3e4ceb4b38b5 h1:ee7Fn4oqra8Xu0hdmlS7vsh3blGtQxG2rkKsPn942ig=
 github.com/ProjectAthenaa/sonic-core v0.0.0-20210827104448-3e4ceb4b38b5/go.mod h1:IIQKipqBQqQljblWlJo06ITAvpg1ImRTBTLwIRu6/Qo=
+github.com/ProjectAthenaa/sonic-core v0.0.0-20210827120329-fb44934967a2 h1:WwBsUoJMu6Nbs/XMB1VMNcSFdukTbo1djKeqCzswQQ0=
+github.com/ProjectAthenaa/sonic-core v0.0.0-20210827120329-fb44934967a2/go.mod h1:IIQKipqBQqQljblWlJo06ITAvpg1ImRTBTLwIRu6/Qo=
 github.com/Shopify/goreferrer v0.0.0-20181106222321-ec9c9a553398/go.mod h1:a1uqRtAwp2Xwc6WNPJEufxJ7fx3npB4UV/JOLmbu5I0=
 github.com/agnivade/levenshtein v1.0.1/go.mod h1:CURSv5d9Uaml+FovSIICkLbAUZ9S4RqaHDIsdSBg7lM=
 github.com/agnivade/levenshtein v1.0.3/go.mod h1:4SFRZbbXWLF4MU1T9Qg0pGgH3Pjs+t6ie5efyrwRJXs=
