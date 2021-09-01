@@ -5,6 +5,7 @@ import (
 	"github.com/ProjectAthenaa/scheduling-service/graph/model"
 	"github.com/ProjectAthenaa/scheduling-service/helpers"
 	"github.com/ProjectAthenaa/sonic-core/sonic/core"
+	"github.com/ProjectAthenaa/sonic-core/sonic/database/ent/task"
 	"github.com/prometheus/common/log"
 	"sync"
 	"time"
@@ -222,12 +223,12 @@ func (s *Schedule) populate() {
 			Base.
 			GetPg("pg").
 			Task.Query().
-			//Where(
-			//	task.StartTimeGTE(
-			//		time.Now(),
-			//	),
-			//	task.StartTimeLTE(time.Now().Add(time.Minute*30)),
-			//).
+			Where(
+				task.StartTimeGTE(
+					time.Now(),
+				),
+				task.StartTimeLTE(time.Now().Add(time.Minute*30)),
+			).
 			WithProduct().
 			All(s.ctx)
 		if err != nil {
