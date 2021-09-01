@@ -4,7 +4,7 @@ go 1.16
 
 require (
 	github.com/99designs/gqlgen v0.13.0
-	github.com/ProjectAthenaa/sonic-core v0.0.0-20210901102750-862140dc597d
+	github.com/ProjectAthenaa/sonic-core v0.0.0-20210901163039-9d77f6aa481f
 	github.com/gin-gonic/gin v1.7.4
 	github.com/go-redis/redis/v8 v8.11.3
 	github.com/json-iterator/go v1.1.11
