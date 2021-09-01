@@ -20,6 +20,8 @@ import (
 const defaultPort = "8080"
 
 func init() {
+
+
 	go func() {
 		if os.Getenv("DEBUG") == "1" {
 			core.Base.GetRedis("cache").Del(context.Background(), "schedulers")

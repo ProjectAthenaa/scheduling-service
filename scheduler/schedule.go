@@ -5,7 +5,6 @@ import (
 	"github.com/ProjectAthenaa/scheduling-service/graph/model"
 	"github.com/ProjectAthenaa/scheduling-service/helpers"
 	"github.com/ProjectAthenaa/sonic-core/sonic/core"
-	"github.com/ProjectAthenaa/sonic-core/sonic/database/ent/task"
 	"github.com/prometheus/common/log"
 	"sync"
 	"time"
@@ -62,6 +61,8 @@ func (s *Schedule) add(task *Task) {
 	default:
 		break
 	}
+
+
 	s.locker.Lock()
 	defer s.locker.Unlock()
 
@@ -156,7 +157,7 @@ func (s *Schedule) startMonitors() {
 					}
 				}()
 			}
-
+			
 			wg.Wait()
 
 			uniqueTasks.Range(func(key, value interface{}) bool {
@@ -221,17 +222,18 @@ func (s *Schedule) populate() {
 			Base.
 			GetPg("pg").
 			Task.Query().
-			Where(
-				task.StartTimeGTE(
-					time.Now(),
-				),
-				task.StartTimeLTE(time.Now().Add(time.Minute*30)),
-			).
+			//Where(
+			//	task.StartTimeGTE(
+			//		time.Now(),
+			//	),
+			//	task.StartTimeLTE(time.Now().Add(time.Minute*30)),
+			//).
 			WithProduct().
 			All(s.ctx)
 		if err != nil {
 			continue
 		}
+
 
 		var wg sync.WaitGroup
 		for _, tk := range tasks {
@@ -256,7 +258,6 @@ func (s *Schedule) populate() {
 					log.Error("error getting user ", err)
 					return
 				}
-
 				s.add(&Task{
 					Task:              t,
 					subscriptionToken: t.ID.String(),

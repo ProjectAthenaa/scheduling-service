@@ -5,7 +5,6 @@ package resolvers
 
 import (
 	"context"
-
 	"github.com/ProjectAthenaa/scheduling-service/graph/generated"
 	"github.com/ProjectAthenaa/scheduling-service/graph/model"
 	"github.com/ProjectAthenaa/scheduling-service/scheduler"
