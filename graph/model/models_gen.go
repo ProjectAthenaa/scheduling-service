@@ -89,6 +89,13 @@ const (
 	StatusCheckoutDecline       Status = "CHECKOUT_DECLINE"
 	StatusCheckoutWaitingFor3ds Status = "CHECKOUT_WAITING_FOR_3DS"
 	StatusCheckout3dsError      Status = "CHECKOUT_3DS_ERROR"
+	StatusLoggingIn             Status = "LOGGING_IN"
+	StatusLoggedIn              Status = "LOGGED_IN"
+	StatusProcessing            Status = "PROCESSING"
+	StatusSubmittingShipping    Status = "SUBMITTING_SHIPPING"
+	StatusSubmittingPayment     Status = "SUBMITTING_PAYMENT"
+	StatusSubmittingCheckout    Status = "SUBMITTING_CHECKOUT"
+	StatusAddedToCart           Status = "ADDED_TO_CART"
 	StatusStopped               Status = "STOPPED"
 	StatusPausing               Status = "PAUSING"
 	StatusPaused                Status = "PAUSED"
@@ -118,6 +125,13 @@ var AllStatus = []Status{
 	StatusCheckoutDecline,
 	StatusCheckoutWaitingFor3ds,
 	StatusCheckout3dsError,
+	StatusLoggingIn,
+	StatusLoggedIn,
+	StatusProcessing,
+	StatusSubmittingShipping,
+	StatusSubmittingPayment,
+	StatusSubmittingCheckout,
+	StatusAddedToCart,
 	StatusStopped,
 	StatusPausing,
 	StatusPaused,
@@ -128,7 +142,7 @@ var AllStatus = []Status{
 
 func (e Status) IsValid() bool {
 	switch e {
-	case StatusPadding, StatusStarting, StatusMonitoring, StatusProductFound, StatusAddingToCart, StatusSolvingCaptcha, StatusCheckingOut, StatusCheckedOut, StatusError, StatusActionNeeded, StatusGeneratingCookies, StatusTaskNotFound, StatusWaitingForCheckout, StatusCheckoutError, StatusCheckoutFailed, StatusCheckoutDuplicate, StatusCheckoutOos, StatusCheckoutDecline, StatusCheckoutWaitingFor3ds, StatusCheckout3dsError, StatusStopped, StatusPausing, StatusPaused, StatusContinuing, StatusContinued, StatusRestarting:
+	case StatusPadding, StatusStarting, StatusMonitoring, StatusProductFound, StatusAddingToCart, StatusSolvingCaptcha, StatusCheckingOut, StatusCheckedOut, StatusError, StatusActionNeeded, StatusGeneratingCookies, StatusTaskNotFound, StatusWaitingForCheckout, StatusCheckoutError, StatusCheckoutFailed, StatusCheckoutDuplicate, StatusCheckoutOos, StatusCheckoutDecline, StatusCheckoutWaitingFor3ds, StatusCheckout3dsError, StatusLoggingIn, StatusLoggedIn, StatusProcessing, StatusSubmittingShipping, StatusSubmittingPayment, StatusSubmittingCheckout, StatusAddedToCart, StatusStopped, StatusPausing, StatusPaused, StatusContinuing, StatusContinued, StatusRestarting:
 		return true
 	}
 	return false
