@@ -13,11 +13,11 @@ import (
 )
 
 type Schedule struct {
-	data         map[time.Time][]*Task
-	startedTasks []uuid.UUID
-	locker       sync.Mutex
-	ctx          context.Context
-	cancelFunc   context.CancelFunc
+	data       map[time.Time][]uuid.UUID
+	tasks      map[uuid.UUID]*Task
+	locker     sync.Mutex
+	ctx        context.Context
+	cancelFunc context.CancelFunc
 }
 
 //NewScheduler creates a new Schedule object with a cancel func
@@ -28,7 +28,8 @@ func NewScheduler() *Schedule {
 
 //init initializes the scheduler by creating a new data map, populating the map and processing the tasks
 func (s *Schedule) init() {
-	s.data = map[time.Time][]*Task{}
+	s.data = map[time.Time][]uuid.UUID{}
+	s.tasks = map[uuid.UUID]*Task{}
 	s.locker = sync.Mutex{}
 
 	go func() {
@@ -55,7 +56,6 @@ func (s *Schedule) init() {
 				if err := t.start(s.ctx); err != nil {
 					log.Error("error starting task", err, "task_id:", t.ID.String())
 				}
-				s.startedTasks = append(s.startedTasks, t.ID)
 			}
 		}
 	}()
@@ -74,24 +74,21 @@ func (s *Schedule) add(task *Task) {
 	defer s.locker.Unlock()
 
 	//loop through the data to check if task already exists
-	for k, tks := range s.data {
-		for i, tk := range tks {
-			if tk.ID == task.ID {
-				//if task exists but the start time has changed, remove task from current slice and add it to the newer one
-				if task.StartTime != tk.StartTime {
-					s.data[k] = removeTask(tks, i)
-					goto addTask
-				}
-
+	for _, ids := range s.data {
+		for _, id := range ids {
+			if tk := s.tasks[id]; tk.ID == task.ID {
 				tk = task
 				return
+			} else {
+				goto addTask
 			}
 		}
 	}
 
 	//append task to the correct data slice
 addTask:
-	s.data[*task.StartTime] = append(s.data[*task.StartTime], task)
+	s.data[*task.StartTime] = append(s.data[*task.StartTime], task.ID)
+	s.tasks[task.ID] = task
 	go task.getPayload()
 }
 
@@ -128,27 +125,17 @@ func (s *Schedule) getChunks() []*Task {
 
 	for k := range s.data {
 		if k.Sub(time.Now()) <= time.Second*1 {
-			chunks := chunk(s.data[k], helpers.GetProcessCount())
+			var timeTasks []*Task
+			for _, id := range s.data[k] {
+				timeTasks = append(timeTasks, s.tasks[id])
+			}
+
+			chunks := chunk(timeTasks, helpers.GetProcessCount())
 			tasks = append(tasks, chunks[helpers.GetCurrentProcessNumber()]...)
 		}
 	}
 
-	var filteredTasks []*Task
-
-	for _, tk := range tasks{
-		var started bool
-		for _, id := range s.startedTasks{
-			if tk.ID == id{
-				started = true
-			}
-		}
-		if !started{
-			filteredTasks = append(filteredTasks, tk)
-		}
-	}
-
-
-	return filteredTasks
+	return tasks
 }
 
 //startMonitors starts the monitors for each task after first isolating the unique tasks
@@ -162,10 +149,10 @@ func (s *Schedule) startMonitors() {
 	s.locker.Lock()
 	defer s.locker.Unlock()
 
-	for k, tasks := range s.data {
+	for k := range s.data {
 		if k.Sub(time.Now()) <= time.Minute {
 			var uniqueTasks sync.Map
-			chunks := chunk(tasks, 4)
+			chunks := chunk(s.getTasks(k), 4)
 
 			var wg sync.WaitGroup
 
@@ -221,10 +208,12 @@ func (s *Schedule) populate() {
 		defer pubSub.Close()
 		for taskID := range pubSub.Channel() {
 			s.locker.Lock()
-			for k, tasks := range s.data {
-				for i, tk := range tasks {
-					if tk.taskID == taskID.Payload {
-						s.data[k] = removeTask(tasks, i)
+			for k, ids := range s.data {
+				for i, id := range ids {
+					if tk := s.tasks[id]; tk.ID.String() == taskID.Payload {
+						delete(s.tasks, id)
+						s.data[k] = removeID(ids, i)
+
 						if tk.taskStarted {
 							tk.stop()
 						}
@@ -251,6 +240,7 @@ func (s *Schedule) populate() {
 					time.Now(),
 				),
 				task.StartTimeLTE(time.Now().Add(time.Minute*30)),
+				task.StartTimeNotNil(),
 			).
 			WithProduct().
 			WithProfileGroup().
@@ -304,11 +294,11 @@ func (s *Schedule) getUserTasks(userID string) (tasks []*model.Task) {
 	defer s.locker.Unlock()
 	for k, v := range s.data {
 		for _, t := range v {
-			if t.userID == userID {
+			if tk := s.tasks[t]; tk.userID == userID {
 				tasks = append(tasks, &model.Task{
-					ID:                t.taskID,
-					SubscriptionToken: t.subscriptionToken,
-					ControlToken:      t.controlToken,
+					ID:                tk.taskID,
+					SubscriptionToken: tk.subscriptionToken,
+					ControlToken:      tk.controlToken,
 					StartTime:         k,
 				})
 			}
@@ -321,5 +311,24 @@ func (s *Schedule) getUserTasks(userID string) (tasks []*model.Task) {
 func (s *Schedule) getData() map[time.Time][]*Task {
 	s.locker.Lock()
 	defer s.locker.Unlock()
-	return s.data
+
+	var tasks = map[time.Time][]*Task{}
+
+	for k, ids := range s.data {
+		for _, id := range ids {
+			tasks[k] = append(tasks[k], s.tasks[id])
+		}
+	}
+
+	return tasks
+}
+
+func (s *Schedule) getTasks(t time.Time) []*Task {
+	var tasks []*Task
+	if ids, ok := s.data[t]; ok {
+		for _, id := range ids {
+			tasks = append(tasks, s.tasks[id])
+		}
+	}
+	return tasks
 }
