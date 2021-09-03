@@ -10,10 +10,6 @@ import (
 func GetCurrentProcessNumber() int {
 	c := os.Getenv("COUNT")
 	count, _ := strconv.Atoi(c)
-	if count == 0 {
-		os.Setenv("COUNT", "1")
-		return 1
-	}
 	return count
 }
 
