@@ -47,9 +47,7 @@ func (s *Schedule) init() {
 
 			//start tasks
 
-			chunks := s.getChunks()
-			fmt.Println("Tasks: ", len(chunks))
-			for _, t := range chunks {
+			for i, t := range s.getChunks() {
 				if t.taskStarted {
 					continue
 				}
@@ -132,6 +130,14 @@ func (s *Schedule) getChunks() []*Task {
 			tasks = append(tasks, chunks[helpers.GetCurrentProcessNumber()]...)
 		}
 	}
+
+
+	for i, t := range tasks{
+		if t.taskStarted{
+			tasks = removeTask(tasks, i)
+		}
+	}
+
 	return tasks
 }
 
