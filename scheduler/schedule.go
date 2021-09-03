@@ -46,6 +46,9 @@ func (s *Schedule) init() {
 
 			//start tasks
 			for _, t := range s.getChunks() {
+				if t.taskStarted {
+					continue
+				}
 				if err := t.start(s.ctx); err != nil {
 					log.Error("error starting task", err, "task_id:", t.ID.String())
 				}
