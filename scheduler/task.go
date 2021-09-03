@@ -90,6 +90,7 @@ func (t *Task) getMonitorID() string {
 
 //start, calls the internal process method as a goroutine
 func (t *Task) start(ctx context.Context) error {
+	fmt.Println(t.taskStarted)
 	t.process(ctx)
 	return nil
 }

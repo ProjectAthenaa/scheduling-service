@@ -53,6 +53,7 @@ func (s *Schedule) init() {
 				if err := t.start(s.ctx); err != nil {
 					log.Error("error starting task", err, "task_id:", t.ID.String())
 				}
+				t.taskStarted = true
 			}
 		}
 	}()
@@ -130,9 +131,8 @@ func (s *Schedule) getChunks() []*Task {
 		}
 	}
 
-
-	for i, t := range tasks{
-		if t.taskStarted{
+	for i, t := range tasks {
+		if t.taskStarted {
 			tasks = removeTask(tasks, i)
 		}
 	}
