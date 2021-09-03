@@ -63,7 +63,6 @@ func (s *Schedule) add(task *Task) {
 		break
 	}
 
-
 	s.locker.Lock()
 	defer s.locker.Unlock()
 
@@ -158,7 +157,7 @@ func (s *Schedule) startMonitors() {
 					}
 				}()
 			}
-			
+
 			wg.Wait()
 
 			uniqueTasks.Range(func(key, value interface{}) bool {
@@ -235,7 +234,6 @@ func (s *Schedule) populate() {
 			continue
 		}
 
-
 		var wg sync.WaitGroup
 		for _, tk := range tasks {
 			if tk.StartTime == nil {
@@ -265,6 +263,7 @@ func (s *Schedule) populate() {
 					controlToken:      helpers.SHA1(t.ID.String()),
 					taskID:            t.ID.String(),
 					userID:            user.ID.String(),
+					startMutex:        &sync.Mutex{},
 				})
 			}()
 		}

@@ -13,6 +13,7 @@ import (
 	"github.com/prometheus/common/log"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -34,6 +35,7 @@ type Task struct {
 	monitorStarted    bool
 	taskStarted       bool
 	startTime         time.Time
+	startMutex        *sync.Mutex
 }
 
 //chunk takes in a slice of tasks and a chunkSize and returns a new slice of slices that has the length of chunkSize and contains
@@ -93,6 +95,8 @@ func (t *Task) start(ctx context.Context) error {
 
 //process is a wrapper around the task controller
 func (t *Task) process(ctx context.Context) {
+	t.startMutex.Lock()
+	defer t.startMutex.Unlock()
 	var err error
 	t.ctx, t.cancel = context.WithCancel(ctx)
 	resp, err := client.Task(t.ctx, t.getPayload())
