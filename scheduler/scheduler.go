@@ -13,7 +13,7 @@ import (
 var scheduler = NewScheduler()
 
 func init() {
-	if err := populateMap(); err != nil{
+	if err := populateMap(); err != nil {
 		panic(err)
 	}
 	scheduler.init()
@@ -34,9 +34,9 @@ func Subscribe(ctx context.Context, tokens ...string) (*redis.PubSub, func() err
 	var channelNames []string
 	scheduler.locker.Lock()
 	defer scheduler.locker.Unlock()
-	for _, tks := range scheduler.data {
-		for _, tk := range tks {
-			if helpers.SliceContains(tokens, tk.subscriptionToken) {
+	for _, ids := range scheduler.data {
+		for _, id := range ids {
+			if tk := scheduler.tasks[id]; helpers.SliceContains(tokens, tk.subscriptionToken) {
 				channelNames = append(channelNames, fmt.Sprintf("tasks:updates:%s", tk.subscriptionToken))
 			}
 		}
@@ -58,9 +58,9 @@ func Subscribe(ctx context.Context, tokens ...string) (*redis.PubSub, func() err
 func PublishCommand(ctx context.Context, token string, command model.Command) error {
 	scheduler.locker.Lock()
 	defer scheduler.locker.Unlock()
-	for _, tks := range scheduler.data {
-		for _, tk := range tks {
-			if tk.controlToken == token {
+	for _, ids := range scheduler.data {
+		for _, id := range ids {
+			if tk := scheduler.tasks[id]; tk.controlToken == token {
 				core.Base.GetRedis("cache").Publish(ctx, fmt.Sprintf("tasks:commands:%s", token), command)
 				return nil
 			}
