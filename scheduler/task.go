@@ -98,6 +98,10 @@ func (t *Task) process(ctx context.Context) {
 	t.startMutex.Lock()
 	defer t.startMutex.Unlock()
 
+	if t.taskStarted{
+		return
+	}
+
 	started, err := Modules[t.Edges.Product[0].Site].Task(ctx, t.getPayload())
 	if err != nil {
 		log.Error("start task: ", err)
