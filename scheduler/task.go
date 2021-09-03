@@ -35,6 +35,7 @@ type Task struct {
 	taskStarted       bool
 	startTime         time.Time
 	startMutex        *sync.Mutex
+	dataLock          *sync.Mutex
 	payload           *module.Data
 }
 
@@ -112,6 +113,8 @@ func (t *Task) process(ctx context.Context) {
 
 //getPayload retrieves the initial payload needed to start the task
 func (t *Task) getPayload() *module.Data {
+	t.dataLock.Lock()
+	defer t.dataLock.Unlock()
 	defer func() {
 		if err := recover(); err != nil {
 			log.Error("error creating payload: ", err)

@@ -270,6 +270,7 @@ func (s *Schedule) populate() {
 					taskID:            t.ID.String(),
 					userID:            user.ID.String(),
 					startMutex:        &sync.Mutex{},
+					dataLock:          &sync.Mutex{},
 				})
 			}()
 		}
