@@ -88,6 +88,7 @@ func (s *Schedule) add(task *Task) {
 	//append task to the correct data slice
 addTask:
 	s.data[*task.StartTime] = append(s.data[*task.StartTime], task)
+	go task.getPayload()
 }
 
 //deleteOlderEntries checks the data set every 15 minutes for any map keys that have exceeded the 1 hour task timeout
@@ -232,6 +233,8 @@ func (s *Schedule) populate() {
 				task.StartTimeLTE(time.Now().Add(time.Minute*30)),
 			).
 			WithProduct().
+			WithProfileGroup().
+			WithProxyList().
 			All(s.ctx)
 		if err != nil {
 			continue

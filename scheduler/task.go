@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"github.com/ProjectAthenaa/scheduling-service/helpers"
 	"github.com/ProjectAthenaa/sonic-core/protos/module"
-	tasks "github.com/ProjectAthenaa/sonic-core/protos/taskController"
 	"github.com/ProjectAthenaa/sonic-core/sonic/core"
 	"github.com/ProjectAthenaa/sonic-core/sonic/database/ent"
 	"github.com/ProjectAthenaa/sonic-core/sonic/database/ent/product"
 	"github.com/json-iterator/go"
 	"github.com/prometheus/common/log"
+	"math/rand"
 	"sort"
 	"strings"
 	"sync"
@@ -18,8 +18,7 @@ import (
 )
 
 var (
-	client = helpers.GetTaskControllerClient()
-	json   = jsoniter.ConfigFastest
+	json = jsoniter.ConfigFastest
 )
 
 //Task is a superset of ent.Task, it holds scheduler-specific fields
@@ -36,6 +35,7 @@ type Task struct {
 	taskStarted       bool
 	startTime         time.Time
 	startMutex        *sync.Mutex
+	payload           *module.Data
 }
 
 //chunk takes in a slice of tasks and a chunkSize and returns a new slice of slices that has the length of chunkSize and contains
@@ -93,36 +93,150 @@ func (t *Task) start(ctx context.Context) error {
 	return nil
 }
 
-//process is a wrapper around the task controller
 func (t *Task) process(ctx context.Context) {
 	t.startMutex.Lock()
 	defer t.startMutex.Unlock()
-	var err error
-	t.ctx, t.cancel = context.WithCancel(ctx)
-	resp, err := client.Task(t.ctx, t.getPayload())
+
+	started, err := Modules[t.Edges.Product[0].Site].Task(ctx, t.getPayload())
 	if err != nil {
-		log.Error("start task: ", err, t.ID)
-		t.taskStarted = false
+		log.Error("start task: ", err)
 		return
 	}
 
-	if !resp.Started {
-		log.Error("Task ", t.ID, " didnt start")
+	if started.Started {
+		log.Info("Task Started | ", t.ID)
+		t.taskStarted = true
 	}
-	log.Info("Task ", t.ID, " started")
-	t.taskStarted = resp.Started
+
 }
 
 //getPayload retrieves the initial payload needed to start the task
-func (t *Task) getPayload() *tasks.StartRequest {
-	return &tasks.StartRequest{
-		TaskID: t.taskID,
+func (t *Task) getPayload() *module.Data {
+	defer func() {
+		if err := recover(); err != nil {
+			log.Error("error creating payload: ", err)
+			t.payload = nil
+		}
+	}()
+	var mData *module.Data
+
+	if t.payload != nil {
+		return t.payload
+	}
+
+	var ctx = context.Background()
+	rand.Seed(time.Now().UnixNano())
+
+	pg := t.Edges.ProfileGroup
+
+	profiles, err := pg.QueryProfiles().All(ctx)
+	if err != nil {
+		log.Error("query all profiles: ", err)
+		panic(err)
+	}
+
+	profile := profiles[rand.Intn(len(profiles))]
+
+	pl := t.Edges.ProxyList[0]
+
+	proxies, err := pl.QueryProxies().All(ctx)
+	if err != nil {
+		log.Error("query proxies: ", err)
+		panic(err)
+	}
+
+	prod := t.Edges.Product[0]
+
+	proxy := proxies[rand.Intn(len(proxies))]
+	mData = &module.Data{
+		Proxy: &module.Proxy{
+			Username: &proxy.Username,
+			Password: &proxy.Password,
+			IP:       proxy.IP,
+			Port:     proxy.Port,
+		},
+		TaskData: &module.TaskData{
+			Color: prod.Colors,
+			Size:  prod.Sizes,
+		},
 		Channels: &module.Channels{
 			MonitorChannel:  t.monitorChannel,
 			UpdatesChannel:  t.subscriptionToken,
 			CommandsChannel: t.controlToken,
 		},
 	}
+
+	if len(prod.Colors) == 0 || prod.Colors[0] == "random" {
+		mData.TaskData.Color = []string{"0"}
+		mData.TaskData.RandomColor = true
+	}
+
+	if len(prod.Sizes) == 0 || prod.Sizes[0] == "random" {
+		mData.TaskData.Size = []string{"0"}
+		mData.TaskData.RandomSize = true
+	}
+
+	shipping, err := profile.QueryShipping().First(ctx)
+	if err != nil {
+		log.Error("query shipping: ", err)
+		panic(err)
+	}
+	shippingAddress, err := shipping.QueryShippingAddress().First(ctx)
+	if err != nil {
+		log.Error("query shipping address: ", err)
+		panic(err)
+	}
+	billing, err := profile.QueryBilling().First(ctx)
+	if err != nil {
+		log.Error("query billing: ", err)
+		panic(err)
+	}
+	mData.Profile = &module.Profile{
+		Email: profile.Email,
+		Shipping: &module.Shipping{
+			FirstName:   shipping.FirstName,
+			LastName:    shipping.LastName,
+			PhoneNumber: shipping.PhoneNumber,
+			ShippingAddress: &module.Address{
+				AddressLine:  shippingAddress.AddressLine,
+				AddressLine2: &shippingAddress.AddressLine2,
+				Country:      shippingAddress.Country,
+				State:        shippingAddress.State,
+				City:         shippingAddress.City,
+				ZIP:          shippingAddress.ZIP,
+			},
+			BillingAddress:    nil,
+			BillingIsShipping: shipping.BillingIsShipping,
+		},
+		Billing: &module.Billing{
+			Number:          billing.CardNumber,
+			ExpirationMonth: billing.ExpiryMonth,
+			ExpirationYear:  billing.ExpiryYear,
+			CVV:             billing.CVV,
+		},
+	}
+
+	if !shipping.BillingIsShipping {
+		billingAddress, err := shipping.QueryBillingAddress().First(ctx)
+		if err != nil {
+			log.Error("query billing address: ", err)
+			panic(err)
+		}
+		mData.Profile.Shipping.BillingAddress = &module.Address{
+			AddressLine:  billingAddress.AddressLine,
+			AddressLine2: &billingAddress.AddressLine2,
+			Country:      billingAddress.Country,
+			State:        billingAddress.State,
+			City:         billingAddress.City,
+			ZIP:          billingAddress.ZIP,
+		}
+
+	}
+
+	mData.Metadata = prod.Metadata
+
+	t.payload = mData
+	return t.payload
 }
 
 func (t *Task) stop() {

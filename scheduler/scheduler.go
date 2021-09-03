@@ -13,6 +13,9 @@ import (
 var scheduler = NewScheduler()
 
 func init() {
+	if err := populateMap(); err != nil{
+		panic(err)
+	}
 	scheduler.init()
 }
 
