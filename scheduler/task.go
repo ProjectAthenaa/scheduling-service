@@ -109,6 +109,7 @@ func (t *Task) process(ctx context.Context) {
 		return
 	}
 
+	fmt.Println("Response: ", started)
 	t.taskStarted = started.Started
 
 	if started.Started {
