@@ -110,7 +110,7 @@ func (t *Task) process(ctx context.Context) {
 	}
 
 	fmt.Println("Response: ", started)
-	fmt.Println("Task: ", t)
+	fmt.Println("Task: ", &t)
 	t.taskStarted = started.Started
 
 	if started.Started {
