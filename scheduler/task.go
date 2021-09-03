@@ -109,7 +109,7 @@ func (t *Task) process(ctx context.Context) {
 	if !resp.Started {
 		log.Error("Task ", t.ID, " didnt start")
 	}
-
+	log.Info("Task ", t.ID, " started")
 	t.taskStarted = resp.Started
 }
 
