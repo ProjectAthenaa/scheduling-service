@@ -15,7 +15,7 @@ import (
 type Schedule struct {
 	data       map[time.Time][]uuid.UUID
 	tasks      map[uuid.UUID]*Task
-	locker     sync.Mutex
+	locker     *sync.Mutex
 	ctx        context.Context
 	cancelFunc context.CancelFunc
 }
@@ -30,7 +30,7 @@ func NewScheduler() *Schedule {
 func (s *Schedule) init() {
 	s.data = map[time.Time][]uuid.UUID{}
 	s.tasks = map[uuid.UUID]*Task{}
-	s.locker = sync.Mutex{}
+	s.locker = &sync.Mutex{}
 
 	go func() {
 		//start population as a goroutine
