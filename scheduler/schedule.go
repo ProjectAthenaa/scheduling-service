@@ -6,16 +6,18 @@ import (
 	"github.com/ProjectAthenaa/scheduling-service/helpers"
 	"github.com/ProjectAthenaa/sonic-core/sonic/core"
 	"github.com/ProjectAthenaa/sonic-core/sonic/database/ent/task"
+	"github.com/google/uuid"
 	"github.com/prometheus/common/log"
 	"sync"
 	"time"
 )
 
 type Schedule struct {
-	data       map[time.Time][]*Task
-	locker     sync.Mutex
-	ctx        context.Context
-	cancelFunc context.CancelFunc
+	data         map[time.Time][]*Task
+	startedTasks []uuid.UUID
+	locker       sync.Mutex
+	ctx          context.Context
+	cancelFunc   context.CancelFunc
 }
 
 //NewScheduler creates a new Schedule object with a cancel func
@@ -53,7 +55,7 @@ func (s *Schedule) init() {
 				if err := t.start(s.ctx); err != nil {
 					log.Error("error starting task", err, "task_id:", t.ID.String())
 				}
-				t.taskStarted = true
+				s.startedTasks = append(s.startedTasks, t.ID)
 			}
 		}
 	}()
@@ -131,13 +133,22 @@ func (s *Schedule) getChunks() []*Task {
 		}
 	}
 
-	for i, t := range tasks {
-		if t.taskStarted {
-			tasks = removeTask(tasks, i)
+	var filteredTasks []*Task
+
+	for _, tk := range tasks{
+		var started bool
+		for _, id := range s.startedTasks{
+			if tk.ID == id{
+				started = true
+			}
+		}
+		if !started{
+			filteredTasks = append(filteredTasks, tk)
 		}
 	}
 
-	return tasks
+
+	return filteredTasks
 }
 
 //startMonitors starts the monitors for each task after first isolating the unique tasks
