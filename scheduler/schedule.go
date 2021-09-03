@@ -2,7 +2,6 @@ package scheduler
 
 import (
 	"context"
-	"fmt"
 	"github.com/ProjectAthenaa/scheduling-service/graph/model"
 	"github.com/ProjectAthenaa/scheduling-service/helpers"
 	"github.com/ProjectAthenaa/sonic-core/sonic/core"
@@ -47,7 +46,7 @@ func (s *Schedule) init() {
 
 			//start tasks
 
-			for i, t := range s.getChunks() {
+			for _, t := range s.getChunks() {
 				if t.taskStarted {
 					continue
 				}
