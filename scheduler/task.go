@@ -117,6 +117,7 @@ func (t *Task) process(ctx context.Context) {
 }
 
 func (t *Task) processUpdates() {
+	fmt.Println(core.Base.GetRedis("cache").Ping(t.ctx))
 	pubsub := core.Base.GetRedis("cache").Subscribe(t.ctx, fmt.Sprintf("tasks:updates:%s", t.subscriptionToken))
 
 	for msg := range pubsub.Channel() {
