@@ -1,11 +1,12 @@
 package scheduler
 
 import (
+	"errors"
 	"fmt"
 	"github.com/ProjectAthenaa/sonic-core/protos/module"
-	"github.com/ProjectAthenaa/sonic-core/sonic/core"
 	"github.com/ProjectAthenaa/sonic-core/sonic/database/ent/product"
 	"google.golang.org/grpc"
+	"strings"
 )
 
 var siteMonitors = map[product.Site]bool{
@@ -34,7 +35,7 @@ var siteMonitors = map[product.Site]bool{
 	product.SiteNewBalance:     true,
 }
 
-var siteAccounts_ = map[product.Site]bool{
+var siteNeedsAccount = map[product.Site]bool{
 	product.SiteFinishLine:     false,
 	product.SiteJD_Sports:      false,
 	product.SiteYeezySupply:    false,
@@ -67,26 +68,26 @@ type account struct {
 
 var siteAccounts = map[product.Site]func(tk *Task) (*account, error){
 	product.SiteTarget: func(tk *Task) (*account, error) {
-		rdb := core.Base.GetRedis("cache")
-
 		setKey := fmt.Sprintf("accounts:target:%s", tk.userID)
+		acc, err := rdb.SPop(tk.ctx, setKey).Result()
 
-		members := rdb.SMembers(tk.ctx, setKey).Val()
-
-		if len(members) == 0 {
-			//no accounts are set
-			//get the accounts from db
-			//add them as a set to redis
-		} else {
-			//account := strings.Split(rdb.SPop(tk.ctx, setKey).String(), ":")
-
-			//username := account[0]
-			//password := account[1]
+		if err != nil {
+			return nil, err
 		}
 
-		return nil, nil
+		if len(acc) == 0 {
+			return nil, errors.New("no_account")
+		}
+
+		details := strings.Split(acc, ":")
+
+		return &account{
+			username: details[0],
+			password: details[1],
+		}, nil
 	},
 }
+
 
 //Modules is the map that holds all the clients for the different modules in siteMap
 var Modules = map[product.Site]module.ModuleClient{}

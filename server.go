@@ -20,7 +20,6 @@ import (
 const defaultPort = "8080"
 
 func init() {
-	fmt.Println(core.Base.GetRedis("cache").Ping(context.Background()))
 
 	go func() {
 		if os.Getenv("DEBUG") == "1" {

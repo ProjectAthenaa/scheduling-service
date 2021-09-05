@@ -8,6 +8,7 @@ import (
 	"github.com/ProjectAthenaa/sonic-core/sonic/core"
 	"github.com/ProjectAthenaa/sonic-core/sonic/database/ent"
 	"github.com/ProjectAthenaa/sonic-core/sonic/database/ent/product"
+	"github.com/go-redis/redis/v8"
 	"github.com/json-iterator/go"
 	"github.com/prometheus/common/log"
 	"math/rand"
@@ -19,6 +20,7 @@ import (
 
 var (
 	json = jsoniter.ConfigFastest
+	rdb  = core.Base.GetRedis("cache")
 )
 
 //Task is a superset of ent.Task, it holds scheduler-specific fields
@@ -37,6 +39,8 @@ type Task struct {
 	startMutex        *sync.Mutex
 	dataLock          *sync.Mutex
 	payload           *module.Data
+	account           *account
+	site              product.Site
 }
 
 //chunk takes in a slice of tasks and a chunkSize and returns a new slice of slices that has the length of chunkSize and contains
@@ -61,7 +65,7 @@ func chunk(tasks []*Task, chunkSize int) [][]*Task {
 
 //getMonitorID returns the monitor id of a task based on its lookup values
 func (t *Task) getMonitorID() string {
-	prefix := fmt.Sprintf("monitors:%s:", t.Edges.Product[0].Site)
+	prefix := fmt.Sprintf("monitors:%s:", t.site)
 	v := t.Edges.Product[0]
 	switch v.LookupType {
 	case product.LookupTypeLink:
@@ -102,7 +106,13 @@ func (t *Task) process(ctx context.Context) {
 		return
 	}
 
-	started, err := Modules[t.Edges.Product[0].Site].Task(ctx, t.getPayload())
+	payload, err := t.getPayload()
+	if err != nil {
+		t.taskStarted = false
+		t.setStatus(module.STATUS_ERROR, "No Account")
+	}
+
+	started, err := Modules[t.site].Task(ctx, payload)
 	if err != nil {
 		log.Error("start task: ", err)
 		return
@@ -117,19 +127,42 @@ func (t *Task) process(ctx context.Context) {
 }
 
 func (t *Task) processUpdates() {
-	core.Base.GetRedis("cache").Ping(t.ctx)
-	pubsub := core.Base.GetRedis("cache").Subscribe(t.ctx, fmt.Sprintf("tasks:updates:%s", t.subscriptionToken))
+	pubsub := rdb.Subscribe(t.ctx, fmt.Sprintf("tasks:updates:%s", t.subscriptionToken))
+
+	var status *module.Status
 
 	for msg := range pubsub.Channel() {
-		if strings.Contains(msg.Payload, "\"Status\":27") {
-			t.taskStarted = false
+		if err := json.Unmarshal([]byte(msg.Payload), &status); err != nil {
+			t.stop()
+			go t.releaseAccount()
 			return
 		}
+
+		switch status.Status {
+		case module.STATUS_STOPPED, module.STATUS_CHECKED_OUT:
+			go t.releaseAccount()
+		default:
+			continue
+		}
+
 	}
 }
 
+func (t *Task) releaseAccount() {
+	blockKey := helpers.SHA1(fmt.Sprintf("%s:%s", t.account.username, t.account.password))
+
+	if rdb.Exists(context.Background(), blockKey).Val() == 1 {
+		rdb.Del(context.Background(), blockKey)
+		return
+	}
+
+	accountPoolKey := fmt.Sprintf("accounts:%s:%s", t.site, t.userID)
+
+	rdb.Set(context.Background(), accountPoolKey, fmt.Sprintf("%s:%s", t.account.username, t.account.password), redis.KeepTTL)
+}
+
 //getPayload retrieves the initial payload needed to start the task
-func (t *Task) getPayload() *module.Data {
+func (t *Task) getPayload() (*module.Data, error) {
 	t.dataLock.Lock()
 	defer t.dataLock.Unlock()
 	defer func() {
@@ -140,8 +173,8 @@ func (t *Task) getPayload() *module.Data {
 	}()
 	var mData *module.Data
 
-	if t.payload != nil {
-		return t.payload
+	if f := t.payload; f != nil {
+		return t.payload, nil
 	}
 
 	var ctx = context.Background()
@@ -255,10 +288,28 @@ func (t *Task) getPayload() *module.Data {
 
 	mData.Metadata = prod.Metadata
 
+	if siteNeedsAccount[t.site] {
+		acc, err := siteAccounts[t.site](t)
+		if err != nil {
+			return nil, err
+		}
+
+		mData.Metadata["username"] = acc.username
+		mData.Metadata["password"] = acc.password
+	}
+
 	t.payload = mData
-	return t.payload
+	return t.payload, nil
 }
 
 func (t *Task) stop() {
 	core.Base.GetRedis("cache").Publish(t.ctx, fmt.Sprintf("tasks:commands:%s", t.controlToken), "STOP")
+}
+
+func (t *Task) setStatus(status module.STATUS, msg string) {
+	stat := &module.Status{}
+	stat.Information["msg"] = msg
+	stat.Status = status
+	data, _ := json.Marshal(status)
+	rdb.Publish(t.ctx, "tasks:updates:%s", string(data))
 }
