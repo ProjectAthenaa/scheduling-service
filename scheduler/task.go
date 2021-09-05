@@ -98,7 +98,7 @@ func (t *Task) process(ctx context.Context) {
 	t.startMutex.Lock()
 	defer t.startMutex.Unlock()
 
-	if t.taskStarted{
+	if t.taskStarted {
 		return
 	}
 
@@ -110,7 +110,20 @@ func (t *Task) process(ctx context.Context) {
 
 	if started.Started {
 		log.Info("Task Started | ", t.ID)
+		go t.processUpdates()
 		t.taskStarted = true
+	}
+
+}
+
+func (t *Task) processUpdates() {
+	pubsub := core.Base.GetRedis("cache").Subscribe(t.ctx, fmt.Sprintf("tasks:updates:%s", t.subscriptionToken))
+
+	for msg := range pubsub.Channel() {
+		if strings.Contains(msg.Payload, "Status:27") {
+			t.taskStarted = false
+			return
+		}
 	}
 
 }
