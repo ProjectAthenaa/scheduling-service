@@ -120,7 +120,7 @@ func (t *Task) processUpdates() {
 	pubsub := core.Base.GetRedis("cache").Subscribe(t.ctx, fmt.Sprintf("tasks:updates:%s", t.subscriptionToken))
 
 	for msg := range pubsub.Channel() {
-		if strings.Contains(msg.Payload, "Status:27") {
+		if strings.Contains(msg.Payload, "\"Status\":27") {
 			t.taskStarted = false
 			return
 		}
