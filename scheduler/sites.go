@@ -1,7 +1,9 @@
 package scheduler
 
 import (
+	"fmt"
 	"github.com/ProjectAthenaa/sonic-core/protos/module"
+	"github.com/ProjectAthenaa/sonic-core/sonic/core"
 	"github.com/ProjectAthenaa/sonic-core/sonic/database/ent/product"
 	"google.golang.org/grpc"
 )
@@ -30,6 +32,60 @@ var siteMonitors = map[product.Site]bool{
 	product.SiteWalmart:        true,
 	product.SiteHibbet:         true,
 	product.SiteNewBalance:     true,
+}
+
+var siteAccounts_ = map[product.Site]bool{
+	product.SiteFinishLine:     false,
+	product.SiteJD_Sports:      false,
+	product.SiteYeezySupply:    false,
+	product.SiteSupreme:        false,
+	product.SiteEastbay_US:     false,
+	product.SiteChamps_US:      false,
+	product.SiteFootaction_US:  false,
+	product.SiteFootlocker_US:  false,
+	product.SiteBestbuy:        false,
+	product.SitePokemon_Center: false,
+	product.SitePanini_US:      false,
+	product.SiteTopss:          false,
+	product.SiteNordstorm:      false,
+	product.SiteEnd:            false,
+	product.SiteTarget:         true,
+	product.SiteAmazon:         false,
+	product.SiteSolebox:        false,
+	product.SiteOnygo:          false,
+	product.SiteSnipes:         false,
+	product.SiteSsense:         false,
+	product.SiteWalmart:        false,
+	product.SiteHibbet:         false,
+	product.SiteNewBalance:     false,
+}
+
+type account struct {
+	username string
+	password string
+}
+
+var siteAccounts = map[product.Site]func(tk *Task) (*account, error){
+	product.SiteTarget: func(tk *Task) (*account, error) {
+		rdb := core.Base.GetRedis("cache")
+
+		setKey := fmt.Sprintf("accounts:target:%s", tk.userID)
+
+		members := rdb.SMembers(tk.ctx, setKey).Val()
+
+		if len(members) == 0 {
+			//no accounts are set
+			//get the accounts from db
+			//add them as a set to redis
+		} else {
+			//account := strings.Split(rdb.SPop(tk.ctx, setKey).String(), ":")
+
+			//username := account[0]
+			//password := account[1]
+		}
+
+		return nil, nil
+	},
 }
 
 //Modules is the map that holds all the clients for the different modules in siteMap

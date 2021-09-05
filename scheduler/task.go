@@ -117,7 +117,7 @@ func (t *Task) process(ctx context.Context) {
 }
 
 func (t *Task) processUpdates() {
-	fmt.Println(core.Base.GetRedis("cache").Ping(t.ctx))
+	core.Base.GetRedis("cache").Ping(t.ctx)
 	pubsub := core.Base.GetRedis("cache").Subscribe(t.ctx, fmt.Sprintf("tasks:updates:%s", t.subscriptionToken))
 
 	for msg := range pubsub.Channel() {
@@ -126,7 +126,6 @@ func (t *Task) processUpdates() {
 			return
 		}
 	}
-
 }
 
 //getPayload retrieves the initial payload needed to start the task
