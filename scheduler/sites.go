@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/ProjectAthenaa/sonic-core/protos/module"
+	"github.com/ProjectAthenaa/sonic-core/sonic/core"
 	"github.com/ProjectAthenaa/sonic-core/sonic/database/ent/product"
 	"google.golang.org/grpc"
 	"strings"
@@ -68,8 +69,9 @@ type account struct {
 
 var siteAccounts = map[product.Site]func(tk *Task) (*account, error){
 	product.SiteTarget: func(tk *Task) (*account, error) {
+		fmt.Println(tk)
 		setKey := fmt.Sprintf("accounts:target:%s", tk.userID)
-		acc, err := rdb.SPop(tk.ctx, setKey).Result()
+		acc, err := core.Base.GetRedis("cache").SPop(tk.ctx, setKey).Result()
 
 		if err != nil {
 			return nil, err
@@ -87,7 +89,6 @@ var siteAccounts = map[product.Site]func(tk *Task) (*account, error){
 		}, nil
 	},
 }
-
 
 //Modules is the map that holds all the clients for the different modules in siteMap
 var Modules = map[product.Site]module.ModuleClient{}

@@ -20,12 +20,7 @@ import (
 
 var (
 	json = jsoniter.ConfigFastest
-	rdb  redis.UniversalClient
 )
-
-func init()  {
-	rdb = core.Base.GetRedis("cache")
-}
 
 //Task is a superset of ent.Task, it holds scheduler-specific fields
 type Task struct {
@@ -131,7 +126,7 @@ func (t *Task) process(ctx context.Context) {
 }
 
 func (t *Task) processUpdates() {
-	pubsub := rdb.Subscribe(t.ctx, fmt.Sprintf("tasks:updates:%s", t.subscriptionToken))
+	pubsub := core.Base.GetRedis("cache").Subscribe(t.ctx, fmt.Sprintf("tasks:updates:%s", t.subscriptionToken))
 
 	var status *module.Status
 
@@ -155,14 +150,14 @@ func (t *Task) processUpdates() {
 func (t *Task) releaseAccount() {
 	blockKey := helpers.SHA1(fmt.Sprintf("%s:%s", t.account.username, t.account.password))
 
-	if rdb.Exists(context.Background(), blockKey).Val() == 1 {
-		rdb.Del(context.Background(), blockKey)
+	if core.Base.GetRedis("cache").Exists(context.Background(), blockKey).Val() == 1 {
+		core.Base.GetRedis("cache").Del(context.Background(), blockKey)
 		return
 	}
 
 	accountPoolKey := fmt.Sprintf("accounts:%s:%s", t.site, t.userID)
 
-	rdb.Set(context.Background(), accountPoolKey, fmt.Sprintf("%s:%s", t.account.username, t.account.password), redis.KeepTTL)
+	core.Base.GetRedis("cache").Set(context.Background(), accountPoolKey, fmt.Sprintf("%s:%s", t.account.username, t.account.password), redis.KeepTTL)
 }
 
 //getPayload retrieves the initial payload needed to start the task
@@ -315,5 +310,5 @@ func (t *Task) setStatus(status module.STATUS, msg string) {
 	stat.Information["msg"] = msg
 	stat.Status = status
 	data, _ := json.Marshal(status)
-	rdb.Publish(t.ctx, "tasks:updates:%s", string(data))
+	core.Base.GetRedis("cache").Publish(t.ctx, "tasks:updates:%s", string(data))
 }
