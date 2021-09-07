@@ -2,6 +2,7 @@ package scheduler
 
 import (
 	"context"
+	"fmt"
 	"github.com/ProjectAthenaa/scheduling-service/graph/model"
 	"github.com/ProjectAthenaa/scheduling-service/helpers"
 	"github.com/ProjectAthenaa/sonic-core/sonic/core"
@@ -85,6 +86,7 @@ func (s *Schedule) add(task *Task) {
 		}
 	}
 
+	fmt.Println(task.userID)
 	//append task to the correct data slice
 addTask:
 	s.data[*task.StartTime] = append(s.data[*task.StartTime], task.ID)
