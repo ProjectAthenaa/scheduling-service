@@ -69,7 +69,7 @@ type account struct {
 
 var siteAccounts = map[product.Site]func(tk *Task) (*account, error){
 	product.SiteTarget: func(tk *Task) (*account, error) {
-		fmt.Println(tk.userID)
+		fmt.Println(core.Base.GetRedis("cache").Ping(tk.ctx))
 		setKey := fmt.Sprintf("accounts:target:%s", tk.userID)
 		acc, err := core.Base.GetRedis("cache").SPop(tk.ctx, setKey).Result()
 
