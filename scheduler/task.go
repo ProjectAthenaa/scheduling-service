@@ -20,8 +20,12 @@ import (
 
 var (
 	json = jsoniter.ConfigFastest
-	rdb  = core.Base.GetRedis("cache")
+	rdb  redis.UniversalClient
 )
+
+func init()  {
+	rdb = core.Base.GetRedis("cache")
+}
 
 //Task is a superset of ent.Task, it holds scheduler-specific fields
 type Task struct {
