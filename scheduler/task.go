@@ -111,7 +111,8 @@ func (t *Task) process(ctx context.Context) {
 		t.taskStarted = false
 		t.setStatus(module.STATUS_ERROR, "No Account")
 	}
-
+	fmt.Println(t.site)
+	fmt.Println(Modules[t.site])
 	started, err := Modules[t.site].Task(ctx, payload)
 	if err != nil {
 		log.Error("start task: ", err)

@@ -281,6 +281,7 @@ func (s *Schedule) populate() {
 					userID:            user.ID.String(),
 					startMutex:        &sync.Mutex{},
 					dataLock:          &sync.Mutex{},
+					site:              t.Edges.Product[0].Site,
 				})
 			}()
 		}
