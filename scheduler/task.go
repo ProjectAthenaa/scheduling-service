@@ -111,8 +111,7 @@ func (t *Task) process(ctx context.Context) {
 		t.taskStarted = false
 		t.setStatus(module.STATUS_ERROR, "No Account")
 	}
-	fmt.Println(t.site)
-	fmt.Println(Modules[t.site])
+
 	started, err := Modules[t.site].Task(ctx, payload)
 	if err != nil {
 		log.Error("start task: ", err)
@@ -166,12 +165,12 @@ func (t *Task) releaseAccount() {
 func (t *Task) getPayload() (*module.Data, error) {
 	t.dataLock.Lock()
 	defer t.dataLock.Unlock()
-	defer func() {
-		if err := recover(); err != nil {
-			log.Error("error creating payload: ", err)
-			t.payload = nil
-		}
-	}()
+	//defer func() {
+	//	if err := recover(); err != nil {
+	//		log.Error("error creating payload: ", err)
+	//		t.payload = nil
+	//	}
+	//}()
 	var mData *module.Data
 
 	if f := t.payload; f != nil {
