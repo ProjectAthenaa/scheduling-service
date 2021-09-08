@@ -89,6 +89,8 @@ func (s *Schedule) add(task *Task) {
 		}
 	}
 
+	log.Info(task.startTime)
+
 	//append task to the correct data slice
 addTask:
 	s.data[*task.StartTime] = append(s.data[*task.StartTime], task.ID)
