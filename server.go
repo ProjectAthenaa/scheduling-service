@@ -31,7 +31,6 @@ func init() {
 		count, _ := core.Base.GetRedis("cache").Incr(context.Background(), "schedulers").Result()
 		os.Setenv("COUNTER", fmt.Sprint(count-1))
 		c := make(chan os.Signal, 1)
-		defer close(c)
 		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 		<-c
 		scheduler.Stop()

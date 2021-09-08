@@ -84,11 +84,10 @@ func (s *Schedule) add(task *Task) {
 				goto addTask
 			}
 		}
-		if len(s.data[t]) == 0{
+		if len(s.data[t]) == 0 {
 			delete(s.data, t)
 		}
 	}
-
 
 	//append task to the correct data slice
 addTask:
@@ -245,7 +244,7 @@ func (s *Schedule) populate() {
 					time.Now(),
 				),
 				task.StartTimeLTE(time.Now().Add(time.Minute*30)),
-				task.StartTimeNotNil(),
+				//task.StartTimeNotNil(),
 			).
 			WithProduct().
 			WithProfileGroup().
@@ -291,6 +290,7 @@ func (s *Schedule) populate() {
 					site:              t.Edges.Product[0].Site,
 					ctx:               c,
 					cancel:            cancel,
+					startTime:         *t.StartTime,
 				})
 			}()
 		}
