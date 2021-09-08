@@ -10,10 +10,12 @@ import (
 	"github.com/ProjectAthenaa/scheduling-service/scheduler"
 	"github.com/ProjectAthenaa/sonic-core/authentication"
 	"github.com/ProjectAthenaa/sonic-core/sonic/core"
+	"github.com/getsentry/sentry-go"
 	"github.com/gin-gonic/gin"
 	"log"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 )
 
@@ -35,6 +37,23 @@ func init() {
 		scheduler.Stop()
 		core.Base.GetRedis("cache").Decr(context.Background(), "schedulers")
 	}()
+
+	var sampleRate float64
+
+	sR := os.Getenv("SAMPLE_RATE")
+	if len(sR) != 0 {
+		sampleRate, _ = strconv.ParseFloat(sR, 64)
+	}
+
+	if err := sentry.Init(sentry.ClientOptions{
+		Dsn:              "https://73eb034025e6462b961137b5b93c6265@o706779.ingest.sentry.io/5951247",
+		ServerName:       "Integration Service",
+		Environment:      os.Getenv("ENVIRONMENT"),
+		TracesSampleRate: sampleRate,
+	}); err != nil {
+		log.Fatalln("sentry.Init: ", err)
+	}
+
 }
 
 // Defining the Graphql handler
