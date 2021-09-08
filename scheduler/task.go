@@ -101,7 +101,7 @@ func (t *Task) process(ctx context.Context) {
 	t.startMutex.Lock()
 	defer t.startMutex.Unlock()
 
-	if t.taskStarted {
+	if t.taskStarted || time.Since(t.startTime) >= time.Second*5 {
 		return
 	}
 
@@ -289,9 +289,9 @@ func (t *Task) getPayload() (*module.Data, error) {
 	}
 
 	mData.Metadata = prod.Metadata
-
 	if siteNeedsAccount[t.site] {
 		acc, err := siteAccounts[t.site](t)
+		fmt.Println(acc)
 		if err != nil {
 			return nil, err
 		}

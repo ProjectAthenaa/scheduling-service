@@ -12,7 +12,7 @@ var monitorClient = getMonitorClient()
 
 //getMonitorClient returns the cient for the monitor controller
 func getMonitorClient() monitorProtos.MonitorClient {
-	conn, err := grpc.Dial("controller.general.svc.cluster.local:3000", grpc.WithInsecure())
+	conn, err := grpc.Dial("monitor-controller.general.svc.cluster.local:3000", grpc.WithInsecure())
 	if err != nil {
 		panic(err)
 	}
