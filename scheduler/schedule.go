@@ -2,6 +2,7 @@ package scheduler
 
 import (
 	"context"
+	"fmt"
 	"github.com/ProjectAthenaa/scheduling-service/graph/model"
 	"github.com/ProjectAthenaa/scheduling-service/helpers"
 	"github.com/ProjectAthenaa/sonic-core/sonic/core"
@@ -81,6 +82,7 @@ func (s *Schedule) add(task *Task) {
 				return
 			} else {
 				s.data[t] = removeID(s.data[t], i)
+				fmt.Println(s.data)
 				goto addTask
 			}
 		}
