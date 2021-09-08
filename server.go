@@ -78,6 +78,8 @@ func playgroundHandler() gin.HandlerFunc {
 
 func main() {
 	r := gin.Default()
+	fmt.Println(os.Getenv("DEBUG"))
+	fmt.Println("Current Scheduler Index: ", helpers.GetCurrentProcessNumber())
 
 	if os.Getenv("DEBUG") == "1" {
 		fmt.Println("Current Scheduler Index: ", helpers.GetCurrentProcessNumber())

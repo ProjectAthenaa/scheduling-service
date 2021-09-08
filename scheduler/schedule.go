@@ -2,6 +2,7 @@ package scheduler
 
 import (
 	"context"
+	"fmt"
 	"github.com/ProjectAthenaa/scheduling-service/graph/model"
 	"github.com/ProjectAthenaa/scheduling-service/helpers"
 	"github.com/ProjectAthenaa/sonic-core/sonic/core"
@@ -152,6 +153,7 @@ func (s *Schedule) startMonitors() {
 
 	for k := range s.data {
 		if k.Sub(time.Now()) <= time.Minute {
+			fmt.Println(k)
 			var uniqueTasks sync.Map
 			chunks := chunk(s.getTasks(k), 4)
 
