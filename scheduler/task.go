@@ -314,5 +314,6 @@ func (t *Task) setStatus(status module.STATUS, msg string) {
 		log.Error("failed to marshal status: ", err)
 		return
 	}
+	fmt.Println(core.Base.GetRedis("cache").Ping(t.ctx))
 	core.Base.GetRedis("cache").Publish(t.ctx, "tasks:updates:%s", string(data))
 }
