@@ -98,6 +98,7 @@ func (t *Task) start(ctx context.Context) error {
 }
 
 func (t *Task) process(ctx context.Context) {
+	log.Info(&t)
 	t.startMutex.Lock()
 	defer t.startMutex.Unlock()
 
@@ -111,8 +112,6 @@ func (t *Task) process(ctx context.Context) {
 		t.setStatus(module.STATUS_ERROR, "No Account")
 		return
 	}
-
-	fmt.Println(payload)
 
 	started, err := Modules[t.site].Task(ctx, payload)
 	if err != nil {
