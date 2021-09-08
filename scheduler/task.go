@@ -300,6 +300,8 @@ func (t *Task) getPayload() (*module.Data, error) {
 		mData.Metadata["password"] = acc.password
 	}
 
+	mData.TaskID = t.taskID
+
 	t.payload = mData
 	return t.payload, nil
 }

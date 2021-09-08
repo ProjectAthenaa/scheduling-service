@@ -2,7 +2,6 @@ package scheduler
 
 import (
 	"context"
-	"fmt"
 	"github.com/ProjectAthenaa/scheduling-service/graph/model"
 	"github.com/ProjectAthenaa/scheduling-service/helpers"
 	"github.com/ProjectAthenaa/sonic-core/sonic/core"
@@ -180,7 +179,6 @@ func (s *Schedule) startMonitors() {
 			uniqueTasks.Range(func(key, value interface{}) bool {
 				tk := value.(*Task)
 				if !tk.monitorStarted {
-					fmt.Println(tk)
 					if err := tk.startMonitor(s.ctx); err != nil {
 						log.Error("error starting monitor:", err)
 						return true
