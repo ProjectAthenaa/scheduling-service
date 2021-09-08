@@ -6,6 +6,7 @@ import (
 	"github.com/99designs/gqlgen/graphql/handler"
 	"github.com/99designs/gqlgen/graphql/playground"
 	"github.com/ProjectAthenaa/scheduling-service/graph/generated"
+	"github.com/ProjectAthenaa/scheduling-service/helpers"
 	"github.com/ProjectAthenaa/scheduling-service/resolvers"
 	"github.com/ProjectAthenaa/scheduling-service/scheduler"
 	"github.com/ProjectAthenaa/sonic-core/authentication"
@@ -22,7 +23,6 @@ import (
 const defaultPort = "8080"
 
 func init() {
-
 	go func() {
 		if os.Getenv("DEBUG") == "1" {
 			core.Base.GetRedis("cache").Del(context.Background(), "schedulers")
@@ -78,6 +78,12 @@ func playgroundHandler() gin.HandlerFunc {
 
 func main() {
 	r := gin.Default()
+
+	if os.Getenv("DEBUG") == "1" {
+		fmt.Println("Current Scheduler Index: ", helpers.GetCurrentProcessNumber())
+	} else {
+		gin.SetMode(gin.ReleaseMode)
+	}
 
 	r.Use(authentication.GenGraphQLAuthenticationFunc(core.Base, "/tasks", nil)())
 

@@ -74,12 +74,13 @@ func (s *Schedule) add(task *Task) {
 	defer s.locker.Unlock()
 
 	//loop through the data to check if task already exists
-	for _, ids := range s.data {
-		for _, id := range ids {
-			if tk := s.tasks[id]; tk.ID == task.ID {
+	for t, ids := range s.data {
+		for i, id := range ids {
+			if tk := s.tasks[id]; tk.ID == task.ID && tk.startTime == task.startTime {
 				tk = task
 				return
 			} else {
+				s.data[t] = removeID(s.data[t], i)
 				goto addTask
 			}
 		}
