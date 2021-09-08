@@ -13,7 +13,7 @@ import (
 	"github.com/ProjectAthenaa/sonic-core/sonic/core"
 	"github.com/getsentry/sentry-go"
 	"github.com/gin-gonic/gin"
-	"log"
+	"github.com/prometheus/common/log"
 	"os"
 	"os/signal"
 	"strconv"
@@ -78,11 +78,11 @@ func playgroundHandler() gin.HandlerFunc {
 
 func main() {
 	r := gin.Default()
-	fmt.Println(os.Getenv("DEBUG"))
-	fmt.Println("Current Scheduler Index: ", helpers.GetCurrentProcessNumber())
+	log.Info(os.Getenv("DEBUG"))
+	log.Info("Current Scheduler Index: ", helpers.GetCurrentProcessNumber())
 
 	if os.Getenv("DEBUG") == "1" {
-		fmt.Println("Current Scheduler Index: ", helpers.GetCurrentProcessNumber())
+		log.Info("Current Scheduler Index: ", helpers.GetCurrentProcessNumber())
 	} else {
 		gin.SetMode(gin.ReleaseMode)
 	}
