@@ -76,7 +76,7 @@ func (s *Schedule) add(task *Task) {
 	//loop through the data to check if task already exists
 	for t, ids := range s.data {
 		for i, id := range ids {
-			if tk := s.tasks[id]; tk.ID == task.ID && tk.startTime == task.startTime {
+			if tk := s.tasks[id]; tk.ID == task.ID && tk.StartTime == task.StartTime {
 				tk = task
 				return
 			} else if tk != nil {
@@ -89,7 +89,7 @@ func (s *Schedule) add(task *Task) {
 		}
 	}
 
-	log.Info(task.startTime)
+	log.Info(task.StartTime)
 
 	//append task to the correct data slice
 addTask:
