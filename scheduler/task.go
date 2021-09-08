@@ -214,7 +214,7 @@ func (t *Task) getPayload() (*module.Data, error) {
 			Size:  prod.Sizes,
 		},
 		Channels: &module.Channels{
-			MonitorChannel:  t.monitorChannel,
+			MonitorChannel:  t.getMonitorID(),
 			UpdatesChannel:  t.subscriptionToken,
 			CommandsChannel: t.controlToken,
 		},
