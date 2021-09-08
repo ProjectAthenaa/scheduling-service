@@ -84,7 +84,11 @@ func (s *Schedule) add(task *Task) {
 				goto addTask
 			}
 		}
+		if len(s.data[t]) == 0{
+			delete(s.data, t)
+		}
 	}
+
 
 	//append task to the correct data slice
 addTask:
