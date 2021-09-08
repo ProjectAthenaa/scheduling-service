@@ -306,7 +306,7 @@ func (t *Task) stop() {
 }
 
 func (t *Task) setStatus(status module.STATUS, msg string) {
-	stat := &module.Status{}
+	stat := &module.Status{Information: make(map[string]string)}
 	stat.Information["msg"] = msg
 	stat.Status = status
 	data, _ := json.Marshal(status)
