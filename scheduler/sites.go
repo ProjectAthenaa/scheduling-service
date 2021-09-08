@@ -117,6 +117,7 @@ var siteMap = map[product.Site]string{
 	product.SiteSsense:         "ssense.modules.svc.cluster.local:3000",
 	product.SiteWalmart:        "walmart.modules.svc.cluster.local:3000",
 	product.SiteHibbet:         "hibbet.modules.svc.cluster.local:3000",
+	product.SiteNewBalance:     "newbalance.modules.svc.cluster.local:3000",
 }
 
 //populateMap connects to all the services shown in siteMap and populates the Modules map accordingly
