@@ -95,6 +95,8 @@ func (s *Schedule) add(task *Task) {
 addTask:
 	s.data[*task.StartTime] = append(s.data[*task.StartTime], task.ID)
 	s.tasks[task.ID] = task
+	log.Info(s.data)
+	log.Info(s.data)
 	go task.getPayload()
 }
 
