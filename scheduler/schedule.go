@@ -273,6 +273,8 @@ func (s *Schedule) populate() {
 					log.Error("error getting user ", err)
 					return
 				}
+				c, cancel := context.WithCancel(context.Background())
+
 				s.add(&Task{
 					Task:              t,
 					subscriptionToken: t.ID.String(),
@@ -282,6 +284,8 @@ func (s *Schedule) populate() {
 					startMutex:        &sync.Mutex{},
 					dataLock:          &sync.Mutex{},
 					site:              t.Edges.Product[0].Site,
+					ctx:               c,
+					cancel:            cancel,
 				})
 			}()
 		}
