@@ -309,6 +309,10 @@ func (t *Task) setStatus(status module.STATUS, msg string) {
 	stat := &module.Status{Information: make(map[string]string)}
 	stat.Information["msg"] = msg
 	stat.Status = status
-	data, _ := json.Marshal(status)
+	data, err := json.Marshal(stat)
+	if err != nil{
+		log.Error("failed to marshal status: ", err)
+		return
+	}
 	core.Base.GetRedis("cache").Publish(t.ctx, "tasks:updates:%s", string(data))
 }
