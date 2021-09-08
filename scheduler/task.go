@@ -109,7 +109,10 @@ func (t *Task) process(ctx context.Context) {
 	if err != nil {
 		t.taskStarted = false
 		t.setStatus(module.STATUS_ERROR, "No Account")
+		return
 	}
+
+	fmt.Println(payload)
 
 	started, err := Modules[t.site].Task(ctx, payload)
 	if err != nil {
@@ -310,7 +313,7 @@ func (t *Task) setStatus(status module.STATUS, msg string) {
 	stat.Information["msg"] = msg
 	stat.Status = status
 	data, err := json.Marshal(stat)
-	if err != nil{
+	if err != nil {
 		log.Error("failed to marshal status: ", err)
 		return
 	}
