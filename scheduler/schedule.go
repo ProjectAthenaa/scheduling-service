@@ -5,16 +5,18 @@ import (
 	"fmt"
 	"github.com/ProjectAthenaa/scheduling-service/graph/model"
 	"github.com/ProjectAthenaa/sonic-core/sonic/core"
+	"github.com/google/uuid"
 	"github.com/prometheus/common/log"
 	"sync"
 	"time"
 )
 
 type Schedule struct {
-	data       map[time.Time][]*Task
-	locker     *sync.Mutex
-	ctx        context.Context
-	cancelFunc context.CancelFunc
+	data        map[time.Time][]*Task
+	taskLockers map[uuid.UUID]*sync.Mutex
+	locker      *sync.Mutex
+	ctx         context.Context
+	cancelFunc  context.CancelFunc
 }
 
 //NewScheduler creates a new Schedule object with a cancel func
@@ -47,18 +49,26 @@ func (s *Schedule) init() {
 
 			for startTime, tasks := range s.data {
 				if time.Now().Sub(startTime) >= time.Second*2 {
+					var locker *sync.Mutex
 					for _, tk := range tasks {
 						if tk.taskStarted {
 							continue
 						}
-						if err := tk.start(s.ctx); err != nil {
+
+						if l, ok := s.taskLockers[tk.ID]; ok {
+							locker = l
+						} else {
+							l = &sync.Mutex{}
+							s.taskLockers[tk.ID] = l
+						}
+						if err := tk.start(s.ctx, locker); err != nil {
 							log.Error("error starting task", err, "task_id: ", tk.ID.String())
 						}
 					}
 				}
 			}
-
 		}
+
 	}()
 }
 
@@ -180,9 +190,25 @@ func (s *Schedule) startMonitors() {
 //all tasks from the database
 func (s *Schedule) populate() {
 	rdb := core.Base.GetRedis("cache")
+
+	go func() {
+		pubSub := rdb.Subscribe(s.ctx, "scheduler:tasks-updated")
+
+		for taskID := range pubSub.Channel() {
+			for _, tasks := range s.data {
+				for _, task := range tasks {
+					if task.ID.String() == taskID.Payload {
+						go s.add(taskID.Payload)
+					}
+				}
+			}
+		}
+
+	}()
+
 	for range time.Tick(time.Millisecond * 25) {
 		newTask := rdb.SPop(s.ctx, "scheduler:scheduled").Val()
-		if newTask == ""{
+		if newTask == "" {
 			continue
 		}
 		rdb.SAdd(s.ctx, "scheduler:processing", newTask)

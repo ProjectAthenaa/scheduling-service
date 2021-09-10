@@ -92,15 +92,15 @@ func (t *Task) getMonitorID() string {
 }
 
 //start, calls the internal process method as a goroutine
-func (t *Task) start(ctx context.Context) error {
-	go t.process(ctx)
+func (t *Task) start(ctx context.Context, mu *sync.Mutex) error {
+	go t.process(ctx, mu)
 	return nil
 }
 
-func (t *Task) process(ctx context.Context) {
+func (t *Task) process(ctx context.Context, mu *sync.Mutex) {
 	log.Info(&t)
-	t.startMutex.Lock()
-	defer t.startMutex.Unlock()
+	mu.Lock()
+	defer mu.Unlock()
 
 	if t.taskStarted || time.Since(t.startTime) >= time.Second*5 {
 		return
