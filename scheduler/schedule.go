@@ -2,7 +2,6 @@ package scheduler
 
 import (
 	"context"
-	"fmt"
 	"github.com/ProjectAthenaa/scheduling-service/graph/model"
 	"github.com/ProjectAthenaa/sonic-core/sonic/core"
 	"github.com/google/uuid"
@@ -27,8 +26,19 @@ func NewScheduler() *Schedule {
 
 //init initializes the scheduler by creating a new data map, populating the map and processing the tasks
 func (s *Schedule) init() {
+	defer func() {
+		if a := recover(); a != nil {
+			for _, tasks := range s.data {
+				for _, task := range tasks {
+					go removeFromProcessingList(task.taskID)
+				}
+			}
+		}
+	}()
+
 	s.data = map[time.Time][]*Task{}
 	s.locker = &sync.Mutex{}
+	s.taskLockers = map[uuid.UUID]*sync.Mutex{}
 
 	go func() {
 		//start population as a goroutine
@@ -101,8 +111,6 @@ func (s *Schedule) add(taskID string) {
 			delete(s.data, t)
 		}
 	}
-	fmt.Println(taskID)
-	fmt.Println(task)
 	//append task to the correct data slice
 addTask:
 	s.data[*task.StartTime] = append(s.data[*task.StartTime], task)
