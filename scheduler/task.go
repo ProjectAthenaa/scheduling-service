@@ -141,6 +141,7 @@ func (t *Task) processUpdates() {
 
 		switch status.Status {
 		case module.STATUS_STOPPED, module.STATUS_CHECKED_OUT:
+			log.Info("Task stopped or checkout, releasing resources...")
 			go t.releaseAccount()
 			go t.release()
 		default:
