@@ -180,6 +180,9 @@ func (s *Schedule) populate() {
 	rdb := core.Base.GetRedis("cache")
 	for range time.Tick(time.Millisecond * 25) {
 		newTask := rdb.SPop(s.ctx, "scheduler:scheduled").Val()
+		if newTask == ""{
+			continue
+		}
 		rdb.SAdd(s.ctx, "scheduler:processing", newTask)
 		go s.add(newTask)
 	}
