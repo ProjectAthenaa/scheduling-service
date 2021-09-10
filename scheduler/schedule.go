@@ -64,7 +64,7 @@ func (s *Schedule) init() {
 					var locker *sync.Mutex
 					for _, tk := range tasks {
 						tk := tk
-						//fmt.Println(&tk)
+						fmt.Println(&tk)
 						if tk.taskStarted {
 							continue
 						}
