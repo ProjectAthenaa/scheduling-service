@@ -95,6 +95,9 @@ func (s *Schedule) add(taskID string) {
 	for t, ids := range s.data {
 		for i, tk := range ids {
 			if tk.ID == task.ID && tk.StartTime == task.StartTime {
+				if tk.taskStarted{
+					go tk.stop()
+				}
 				tk = task
 				return
 			} else if tk != nil {
