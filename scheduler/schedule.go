@@ -91,6 +91,7 @@ func (s *Schedule) add(taskID string) {
 			delete(s.data, t)
 		}
 	}
+	fmt.Println(taskID)
 	fmt.Println(task)
 	//append task to the correct data slice
 addTask:
