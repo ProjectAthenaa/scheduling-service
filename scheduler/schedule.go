@@ -63,7 +63,8 @@ func (s *Schedule) init() {
 				if time.Now().Sub(startTime) >= time.Second {
 					var locker *sync.Mutex
 					for _, tk := range tasks {
-						fmt.Println(&tk)
+						tk := tk
+						//fmt.Println(&tk)
 						if tk.taskStarted {
 							continue
 						}
