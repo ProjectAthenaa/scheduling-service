@@ -34,10 +34,10 @@ func Subscribe(ctx context.Context, tokens ...string) (*redis.PubSub, func() err
 	var channelNames []string
 	scheduler.locker.Lock()
 	defer scheduler.locker.Unlock()
-	for _, ids := range scheduler.data {
-		for _, id := range ids {
-			if tk := scheduler.tasks[id]; helpers.SliceContains(tokens, tk.subscriptionToken) {
-				channelNames = append(channelNames, fmt.Sprintf("tasks:updates:%s", tk.subscriptionToken))
+	for _, tasks := range scheduler.data {
+		for _, task := range tasks {
+			if helpers.SliceContains(tokens, task.subscriptionToken) {
+				channelNames = append(channelNames, fmt.Sprintf("tasks:updates:%s", task.subscriptionToken))
 			}
 		}
 	}
@@ -58,9 +58,9 @@ func Subscribe(ctx context.Context, tokens ...string) (*redis.PubSub, func() err
 func PublishCommand(ctx context.Context, token string, command model.Command) error {
 	scheduler.locker.Lock()
 	defer scheduler.locker.Unlock()
-	for _, ids := range scheduler.data {
-		for _, id := range ids {
-			if tk := scheduler.tasks[id]; tk.controlToken == token {
+	for _, tasks := range scheduler.data {
+		for _, task := range tasks {
+			if task.controlToken == token {
 				core.Base.GetRedis("cache").Publish(ctx, fmt.Sprintf("tasks:commands:%s", token), command)
 				return nil
 			}

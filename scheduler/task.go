@@ -142,6 +142,7 @@ func (t *Task) processUpdates() {
 		switch status.Status {
 		case module.STATUS_STOPPED, module.STATUS_CHECKED_OUT:
 			go t.releaseAccount()
+			go t.release()
 		default:
 			continue
 		}
@@ -320,4 +321,8 @@ func (t *Task) setStatus(status module.STATUS, msg string) {
 	}
 
 	core.Base.GetRedis("cache").Publish(t.ctx, "tasks:updates:%s", string(data))
+}
+
+func (t *Task) release() {
+	core.Base.GetRedis("cache").SRem(context.Background(), "scheduler:processing", t.taskID)
 }
