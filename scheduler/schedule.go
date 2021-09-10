@@ -58,27 +58,27 @@ func (s *Schedule) init() {
 			//startMonitors for current data set
 			go s.startMonitors()
 
+			log.Info(s.data)
+
 			//start tasks
+			for _, tasks := range s.data {
+				var locker *sync.Mutex
+				for _, tk := range tasks {
+					if tk.taskStarted {
+						continue
+					}
 
-			for startTime, tasks := range s.data {
-				if time.Now().Sub(startTime) >= time.Second*2 {
-					var locker *sync.Mutex
-					for _, tk := range tasks {
-						if tk.taskStarted {
-							continue
-						}
-
-						if l, ok := s.taskLockers[tk.ID]; ok {
-							locker = l
-						} else {
-							locker = &sync.Mutex{}
-							s.taskLockers[tk.ID] = locker
-						}
-						if err := tk.start(s.ctx, locker); err != nil {
-							log.Error("error starting task", err, "task_id: ", tk.ID.String())
-						}
+					if l, ok := s.taskLockers[tk.ID]; ok {
+						locker = l
+					} else {
+						locker = &sync.Mutex{}
+						s.taskLockers[tk.ID] = locker
+					}
+					if err := tk.start(s.ctx, locker); err != nil {
+						log.Error("error starting task", err, "task_id: ", tk.ID.String())
 					}
 				}
+
 			}
 		}
 
