@@ -59,24 +59,15 @@ func (s *Schedule) init() {
 			go s.startMonitors()
 
 			//start tasks
-			for startTime, tasks := range s.data {
+			for startTime := range s.data {
 				if time.Now().Sub(startTime) >= time.Second {
-					var locker *sync.Mutex
-					for _, tk := range tasks {
-						tk := tk
-						fmt.Println(&tk)
-						if tk.taskStarted {
+					for i := range s.data[startTime] {
+						if s.data[startTime][i].taskStarted {
 							continue
 						}
 
-						if l, ok := s.taskLockers[tk.ID]; ok {
-							locker = l
-						} else {
-							locker = &sync.Mutex{}
-							s.taskLockers[tk.ID] = locker
-						}
-						if err := tk.start(s.ctx, locker); err != nil {
-							log.Error("error starting task", err, "task_id: ", tk.ID.String())
+						if err := s.data[startTime][i].start(s.ctx); err != nil {
+							log.Error("error starting task", err, "task_id: ", s.data[startTime][i].ID.String())
 						}
 					}
 				}
