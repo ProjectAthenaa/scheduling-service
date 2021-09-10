@@ -2,6 +2,7 @@ package scheduler
 
 import (
 	"context"
+	"fmt"
 	"github.com/ProjectAthenaa/scheduling-service/graph/model"
 	"github.com/ProjectAthenaa/sonic-core/sonic/core"
 	"github.com/google/uuid"
@@ -28,8 +29,10 @@ func NewScheduler() *Schedule {
 func (s *Schedule) init() {
 	defer func() {
 		if a := recover(); a != nil {
+			fmt.Println("Recovered, terminating all tasks")
 			for _, tasks := range s.data {
 				for _, task := range tasks {
+					fmt.Println("Deallocating Task: ", task.taskID)
 					go removeFromProcessingList(task.taskID)
 				}
 			}
