@@ -212,7 +212,9 @@ func (s *Schedule) populate() {
 			continue
 		}
 		rdb.SAdd(s.ctx, "scheduler:processing", newTask)
+		log.Info("Loading Task: ", newTask)
 		go s.add(newTask)
+
 	}
 
 }
