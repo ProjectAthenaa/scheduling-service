@@ -93,9 +93,9 @@ func (s *Schedule) add(taskID string) {
 
 	//loop through the data to check if task already exists
 	for t := range s.data {
-		for i:= range s.data[t] {
+		for i := range s.data[t] {
 			if s.data[t][i].ID == task.ID && s.data[t][i].StartTime == task.StartTime {
-				if s.data[t][i].taskStarted{
+				if s.data[t][i].taskStarted {
 					go s.data[t][i].stop()
 				}
 				s.data[t][i] = task
@@ -151,6 +151,9 @@ func (s *Schedule) startMonitors() {
 			var wg sync.WaitGroup
 
 			tasks := s.getTasks(k)
+			rdb := core.Base.GetRedis("cache")
+
+			pipe := rdb.Pipeline()
 
 			for _, tk := range tasks {
 				wg.Add(1)
@@ -160,10 +163,33 @@ func (s *Schedule) startMonitors() {
 					mID := tk.getMonitorID()
 					tk.monitorChannel = mID
 					uniqueTasks.Store(mID, tk)
+
+					proxylist, err := tk.Edges.ProxyListOrErr()
+					if err != nil {
+						log.Error("load proxy list for task: ", tk.taskID, " error: ", err)
+						return
+					}
+
+					proxies, _ := proxylist[0].Proxies(tk.ctx)
+
+					var redisKey = string("proxies:" + tk.site)
+
+					for _, proxy := range proxies {
+						if proxy.Username != "" && proxy.Password != "" {
+							pipe.Publish(tk.ctx, redisKey, fmt.Sprintf("%s:%s:%s:%s", proxy.Username, proxy.Password, proxy.IP, proxy.Port))
+							continue
+						}
+						pipe.Publish(tk.ctx, redisKey, fmt.Sprintf("%s:%s", proxy.IP, proxy.Port))
+					}
+
 				}()
 			}
-
 			wg.Wait()
+
+			_, err := pipe.Exec(context.Background())
+			if err != nil {
+				log.Error("error sending proxies: ", err)
+			}
 
 			uniqueTasks.Range(func(key, value interface{}) bool {
 				tk := value.(*Task)
