@@ -52,11 +52,18 @@ func (t *Task) startMonitor(ctx context.Context) error {
 		break
 	}
 
-	_, err := monitorClient.NewTask(ctx, newMonitorTask)
+	resp, err := monitorClient.NewTask(ctx, newMonitorTask)
 	if err != nil {
 		log.Info("error starting monitor: ", err)
 		return err
 	}
+
+	if resp.Stopped == true {
+		log.Warn("Monitor with ID: ", t.monitorChannel, " did not start")
+		return nil
+	}
+
+	t.monitorStarted = true
 
 	return nil
 }
