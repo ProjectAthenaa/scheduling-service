@@ -176,7 +176,7 @@ func (s *Schedule) startMonitors() {
 
 					for _, proxy := range proxies {
 						if proxy.Username != "" && proxy.Password != "" {
-							pipe.Publish(tk.ctx, redisKey, fmt.Sprintf("%s:%s:%s:%s", proxy.Username, proxy.Password, proxy.IP, proxy.Port))
+							pipe.Publish(tk.ctx, redisKey, fmt.Sprintf("%s:%s@%s:%s", proxy.Username, proxy.Password, proxy.IP, proxy.Port))
 							continue
 						}
 						pipe.Publish(tk.ctx, redisKey, fmt.Sprintf("%s:%s", proxy.IP, proxy.Port))
