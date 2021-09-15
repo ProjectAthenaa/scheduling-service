@@ -52,25 +52,6 @@ type Task struct {
 	stopped           bool
 }
 
-//chunk takes in a slice of tasks and a chunkSize and returns a new slice of slices that has the length of chunkSize and contains
-//an evenly distributed amount of Task(s)
-func chunk(tasks []*Task, chunkSize int) [][]*Task {
-	if len(tasks) == 0 {
-		return nil
-	}
-	divided := make([][]*Task, (len(tasks)+chunkSize-1)/chunkSize)
-	prev := 0
-	i := 0
-	till := len(tasks) - chunkSize
-	for prev < till {
-		next := prev + chunkSize
-		divided[i] = tasks[prev:next]
-		prev = next
-		i++
-	}
-	divided[i] = tasks[prev:]
-	return divided
-}
 
 //getMonitorID returns the monitor id of a task based on its lookup values
 func (t *Task) getMonitorID() string {
@@ -111,7 +92,7 @@ func (t *Task) process(ctx context.Context) {
 	t.startMutex.Lock()
 	defer t.startMutex.Unlock()
 
-	if t.taskStarted || time.Since(t.startTime) >= time.Second*5 {
+	if t.taskStarted {
 		return
 	}
 

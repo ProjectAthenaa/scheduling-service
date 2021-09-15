@@ -79,6 +79,9 @@ func (s *Schedule) init() {
 
 //add appends the task to the appropriate task slice in data
 func (s *Schedule) add(taskID string) {
+	defer func() {
+		log.Info("Loaded Task| ", taskID)
+	}()
 	select {
 	case <-s.ctx.Done():
 		return
@@ -258,7 +261,6 @@ func (s *Schedule) populate() {
 			continue
 		}
 		rdb.SAdd(s.ctx, "scheduler:processing", newTask)
-		log.Info("Loading Task: ", newTask)
 		go s.add(newTask)
 
 	}
