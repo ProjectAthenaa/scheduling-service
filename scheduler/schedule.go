@@ -117,7 +117,7 @@ addTask:
 
 //deleteOlderEntries checks the data set every 15 minutes for any map keys that have exceeded the 1 hour task timeout
 func (s *Schedule) deleteOlderEntries() {
-	for range time.Tick(time.Minute * 15) {
+	for range time.Tick(time.Second) {
 		select {
 		case <-s.ctx.Done():
 			return
@@ -125,11 +125,25 @@ func (s *Schedule) deleteOlderEntries() {
 			break
 		}
 		s.locker.Lock()
-		for k := range s.data {
-			if time.Now().Sub(k) >= time.Hour {
-				delete(s.data, k)
+
+		for startTime, tasks := range s.data {
+			if startTime.Sub(time.Now()) >= time.Minute {
+				delete(s.data, startTime)
 			}
+
+			for i := range tasks {
+				s.taskLockers[tasks[i].ID].Lock()
+				if tasks[i].stopped {
+					s.data[startTime] = removeTask(tasks, i)
+				}
+				s.taskLockers[tasks[i].ID].Unlock()
+				delete(s.taskLockers, tasks[i].ID)
+			}
+
 		}
+
+		//for _, tasks := range s.
+
 		s.locker.Unlock()
 	}
 }

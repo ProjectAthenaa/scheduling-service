@@ -49,6 +49,7 @@ type Task struct {
 	payload           *module.Data
 	account           *account
 	site              product.Site
+	stopped           bool
 }
 
 //chunk takes in a slice of tasks and a chunkSize and returns a new slice of slices that has the length of chunkSize and contains
@@ -157,7 +158,6 @@ func (t *Task) processUpdates() {
 	}
 }
 
-
 //getPayload retrieves the initial payload needed to start the task
 func (t *Task) getPayload() (*module.Data, error) {
 	t.dataLock.Lock()
@@ -246,6 +246,7 @@ func (t *Task) setStatus(status module.STATUS, msg string) {
 
 func (t *Task) release() {
 	core.Base.GetRedis("cache").SRem(context.Background(), "scheduler:processing", t.taskID)
+	t.stopped = true
 }
 
 func (t *Task) getProxy() (*module.Proxy, error) {
@@ -310,8 +311,6 @@ func (t *Task) getAccount() (username, password string, err error) {
 	rdb := core.Base.GetRedis("cache")
 
 	app, _ := t.Edges.TaskGroup.App(t.ctx)
-
-
 
 	dbAccounts, err := app[0].QueryAccountGroups().Where(accountgroup.SiteEQ(accountgroup.Site(t.site))).First(t.ctx)
 	if err != nil {
