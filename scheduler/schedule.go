@@ -91,8 +91,8 @@ func (s *Schedule) add(taskID string) {
 
 	task := s.loadTask(taskID)
 
-	s.locker.Lock()
-	defer s.locker.Unlock()
+	//s.locker.Lock()
+	//defer s.locker.Unlock()
 
 	//loop through the data to check if task already exists
 	for t := range s.data {
