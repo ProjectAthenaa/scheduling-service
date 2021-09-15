@@ -32,9 +32,9 @@ func (r *queryResolver) GetScheduledTasks(ctx context.Context) ([]*model.Task, e
 }
 
 func (r *subscriptionResolver) TaskUpdates(ctx context.Context, subscriptionTokens []string) (<-chan *model.TaskStatus, error) {
-	if _, err := contextExtract(ctx); err != nil {
-		return nil, err
-	}
+	//if _, err := contextExtract(ctx); err != nil {
+	//	return nil, err
+	//}
 	updates := make(chan *model.TaskStatus)
 	pubSub, closePubSub, err := scheduler.Subscribe(ctx, subscriptionTokens...)
 	if err != nil {
