@@ -189,7 +189,6 @@ func (t *Task) getPayload() (*module.Data, error) {
 		return t.payload, nil
 	}
 
-
 	prod := t.Edges.Product[0]
 
 	proxy, err := t.getProxy()
@@ -368,7 +367,7 @@ func (t *Task) getAccount() (username, password string, err error) {
 	return acc[0], acc[1], nil
 }
 
-func (t *Task) getProfile() (*module.Profile, error) {
+func (t *Task) getProfile() (retProf *module.Profile, err error) {
 	rdb := core.Base.GetRedis("cache")
 
 	profileGroup := t.Edges.ProfileGroup
@@ -399,7 +398,7 @@ func (t *Task) getProfile() (*module.Profile, error) {
 			return nil, sonic.EntErr(err)
 		}
 
-		for _, prof := range profiles {
+		for i, prof := range profiles {
 			shipping, err := prof.QueryShipping().First(t.ctx)
 			if err != nil {
 				return nil, sonic.EntErr(err)
@@ -461,12 +460,16 @@ func (t *Task) getProfile() (*module.Profile, error) {
 				return nil, err
 			}
 
+			if i == 0 {
+				retProf = toAppend
+			}
+
 			availablePool = append(availablePool, string(payload))
 		}
 
 		rdb.SAdd(t.ctx, key, availablePool[1:]...)
 
-		return availablePool[0].(*module.Profile), nil
+		return retProf, nil
 	}
 
 	data := core.Base.GetRedis("cache").SPop(t.ctx, key).Val()
