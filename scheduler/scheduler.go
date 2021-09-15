@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/ProjectAthenaa/scheduling-service/graph/model"
-	"github.com/ProjectAthenaa/scheduling-service/helpers"
 	"github.com/ProjectAthenaa/sonic-core/sonic/core"
 	"github.com/go-redis/redis/v8"
 )
@@ -34,12 +33,16 @@ func Subscribe(ctx context.Context, tokens ...string) (*redis.PubSub, func() err
 	var channelNames []string
 	scheduler.locker.Lock()
 	defer scheduler.locker.Unlock()
-	for _, tasks := range scheduler.data {
-		for _, task := range tasks {
-			if helpers.SliceContains(tokens, task.subscriptionToken) {
-				channelNames = append(channelNames, fmt.Sprintf("tasks:updates:%s", task.subscriptionToken))
-			}
-		}
+	//for _, tasks := range scheduler.data {
+	//	for _, task := range tasks {
+	//		if helpers.SliceContains(tokens, task.subscriptionToken) {
+	//			channelNames = append(channelNames, fmt.Sprintf("tasks:updates:%s", task.subscriptionToken))
+	//		}
+	//	}
+	//}
+
+	for _, token := range tokens {
+		channelNames = append(channelNames, fmt.Sprintf("tasks:updates:%s", token))
 	}
 
 	pubsub := core.Base.GetRedis("cache").Subscribe(ctx, channelNames...)
