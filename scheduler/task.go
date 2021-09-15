@@ -10,7 +10,6 @@ import (
 	"github.com/ProjectAthenaa/sonic-core/sonic/database/ent"
 	"github.com/ProjectAthenaa/sonic-core/sonic/database/ent/accountgroup"
 	"github.com/ProjectAthenaa/sonic-core/sonic/database/ent/product"
-	"github.com/go-redis/redis/v8"
 	"github.com/go-redsync/redsync/v4"
 	"github.com/go-redsync/redsync/v4/redis/goredis/v8"
 	"github.com/json-iterator/go"
@@ -144,14 +143,12 @@ func (t *Task) processUpdates() {
 	for msg := range pubsub.Channel() {
 		if err := json.Unmarshal([]byte(msg.Payload), &status); err != nil {
 			t.stop()
-			go t.releaseAccount()
 			return
 		}
 
 		switch status.Status {
 		case module.STATUS_STOPPED, module.STATUS_CHECKED_OUT:
 			log.Info("Task stopped or checkout, releasing resources...")
-			go t.releaseAccount()
 			go t.release()
 		default:
 			continue
@@ -160,18 +157,6 @@ func (t *Task) processUpdates() {
 	}
 }
 
-func (t *Task) releaseAccount() {
-	blockKey := helpers.SHA1(fmt.Sprintf("%s:%s", t.account.username, t.account.password))
-
-	if core.Base.GetRedis("cache").Exists(context.Background(), blockKey).Val() == 1 {
-		core.Base.GetRedis("cache").Del(context.Background(), blockKey)
-		return
-	}
-
-	accountPoolKey := fmt.Sprintf("accounts:%s:%s", t.site, t.userID)
-
-	core.Base.GetRedis("cache").Set(context.Background(), accountPoolKey, fmt.Sprintf("%s:%s", t.account.username, t.account.password), redis.KeepTTL)
-}
 
 //getPayload retrieves the initial payload needed to start the task
 func (t *Task) getPayload() (*module.Data, error) {
