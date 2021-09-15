@@ -2,7 +2,6 @@ package scheduler
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"github.com/ProjectAthenaa/scheduling-service/graph/model"
 	"github.com/ProjectAthenaa/sonic-core/sonic/core"
@@ -33,13 +32,6 @@ func Subscribe(ctx context.Context, tokens ...string) (*redis.PubSub, func() err
 	var channelNames []string
 	scheduler.locker.Lock()
 	defer scheduler.locker.Unlock()
-	//for _, tasks := range scheduler.data {
-	//	for _, task := range tasks {
-	//		if helpers.SliceContains(tokens, task.subscriptionToken) {
-	//			channelNames = append(channelNames, fmt.Sprintf("tasks:updates:%s", task.subscriptionToken))
-	//		}
-	//	}
-	//}
 
 	for _, token := range tokens {
 		channelNames = append(channelNames, fmt.Sprintf("tasks:updates:%s", token))
@@ -61,14 +53,6 @@ func Subscribe(ctx context.Context, tokens ...string) (*redis.PubSub, func() err
 func PublishCommand(ctx context.Context, token string, command model.Command) error {
 	scheduler.locker.Lock()
 	defer scheduler.locker.Unlock()
-	for _, tasks := range scheduler.data {
-		for _, task := range tasks {
-			if task.controlToken == token {
-				core.Base.GetRedis("cache").Publish(ctx, fmt.Sprintf("tasks:commands:%s", token), command)
-				return nil
-			}
-		}
-	}
-
-	return errors.New("task_not_found")
+	core.Base.GetRedis("cache").Publish(ctx, fmt.Sprintf("tasks:commands:%s", token), command)
+	return nil
 }
