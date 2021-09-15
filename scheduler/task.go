@@ -5,13 +5,16 @@ import (
 	"fmt"
 	"github.com/ProjectAthenaa/scheduling-service/helpers"
 	"github.com/ProjectAthenaa/sonic-core/protos/module"
+	"github.com/ProjectAthenaa/sonic-core/sonic"
 	"github.com/ProjectAthenaa/sonic-core/sonic/core"
 	"github.com/ProjectAthenaa/sonic-core/sonic/database/ent"
+	"github.com/ProjectAthenaa/sonic-core/sonic/database/ent/accountgroup"
 	"github.com/ProjectAthenaa/sonic-core/sonic/database/ent/product"
 	"github.com/go-redis/redis/v8"
+	"github.com/go-redsync/redsync/v4"
+	"github.com/go-redsync/redsync/v4/redis/goredis/v8"
 	"github.com/json-iterator/go"
 	"github.com/prometheus/common/log"
-	"math/rand"
 	"sort"
 	"strings"
 	"sync"
@@ -19,8 +22,15 @@ import (
 )
 
 var (
-	json = jsoniter.ConfigFastest
+	json      = jsoniter.ConfigFastest
+	redisSync *redsync.Redsync
 )
+
+func init() {
+	rdb := core.Base.GetRedis("cache")
+	pool := goredis.NewPool(rdb)
+	redisSync = redsync.New(pool)
+}
 
 //Task is a superset of ent.Task, it holds scheduler-specific fields
 type Task struct {
@@ -179,34 +189,17 @@ func (t *Task) getPayload() (*module.Data, error) {
 		return t.payload, nil
 	}
 
-	var ctx = context.Background()
-	rand.Seed(time.Now().UnixNano())
-
-	pg := t.Edges.ProfileGroup
-
-	profiles, err := pg.QueryProfiles().All(ctx)
-	if err != nil {
-		log.Error("query all profiles: ", err)
-		panic(err)
-	}
-
-	profile := profiles[rand.Intn(len(profiles))]
-
-	pl := t.Edges.ProxyList[0]
-
-	proxies, err := pl.QueryProxies().All(ctx)
-	if err != nil {
-		log.Error("query proxies: ", err)
-		panic(err)
-	}
 
 	prod := t.Edges.Product[0]
 
-	proxy := proxies[rand.Intn(len(proxies))]
+	proxy, err := t.getProxy()
+	if err != nil {
+		return t.payload, nil
+	}
 	mData = &module.Data{
 		Proxy: &module.Proxy{
-			Username: &proxy.Username,
-			Password: &proxy.Password,
+			Username: proxy.Username,
+			Password: proxy.Password,
 			IP:       proxy.IP,
 			Port:     proxy.Port,
 		},
@@ -231,73 +224,17 @@ func (t *Task) getPayload() (*module.Data, error) {
 		mData.TaskData.RandomSize = true
 	}
 
-	shipping, err := profile.QueryShipping().First(ctx)
+	mData.Profile, err = t.getProfile()
 	if err != nil {
-		log.Error("query shipping: ", err)
-		panic(err)
-	}
-	shippingAddress, err := shipping.QueryShippingAddress().First(ctx)
-	if err != nil {
-		log.Error("query shipping address: ", err)
-		panic(err)
-	}
-	billing, err := profile.QueryBilling().First(ctx)
-	if err != nil {
-		log.Error("query billing: ", err)
-		panic(err)
-	}
-	mData.Profile = &module.Profile{
-		Email: profile.Email,
-		Shipping: &module.Shipping{
-			FirstName:   shipping.FirstName,
-			LastName:    shipping.LastName,
-			PhoneNumber: shipping.PhoneNumber,
-			ShippingAddress: &module.Address{
-				AddressLine:  shippingAddress.AddressLine,
-				AddressLine2: &shippingAddress.AddressLine2,
-				Country:      shippingAddress.Country,
-				State:        shippingAddress.State,
-				City:         shippingAddress.City,
-				ZIP:          shippingAddress.ZIP,
-			},
-			BillingAddress:    nil,
-			BillingIsShipping: shipping.BillingIsShipping,
-		},
-		Billing: &module.Billing{
-			Number:          billing.CardNumber,
-			ExpirationMonth: billing.ExpiryMonth,
-			ExpirationYear:  billing.ExpiryYear,
-			CVV:             billing.CVV,
-		},
-	}
-
-	if !shipping.BillingIsShipping {
-		billingAddress, err := shipping.QueryBillingAddress().First(ctx)
-		if err != nil {
-			log.Error("query billing address: ", err)
-			panic(err)
-		}
-		mData.Profile.Shipping.BillingAddress = &module.Address{
-			AddressLine:  billingAddress.AddressLine,
-			AddressLine2: &billingAddress.AddressLine2,
-			Country:      billingAddress.Country,
-			State:        billingAddress.State,
-			City:         billingAddress.City,
-			ZIP:          billingAddress.ZIP,
-		}
-
+		return t.payload, err
 	}
 
 	mData.Metadata = prod.Metadata
 	if siteNeedsAccount[t.site] {
-		acc, err := siteAccounts[t.site](t)
-		fmt.Println(acc)
+		mData.Metadata["username"], mData.Metadata["password"], err = t.getAccount()
 		if err != nil {
-			return nil, err
+			return t.payload, err
 		}
-
-		mData.Metadata["username"] = acc.username
-		mData.Metadata["password"] = acc.password
 	}
 
 	mData.TaskID = t.taskID
@@ -325,4 +262,220 @@ func (t *Task) setStatus(status module.STATUS, msg string) {
 
 func (t *Task) release() {
 	core.Base.GetRedis("cache").SRem(context.Background(), "scheduler:processing", t.taskID)
+}
+
+func (t *Task) getProxy() (*module.Proxy, error) {
+	rdb := core.Base.GetRedis("cache")
+	dbProxyList := t.Edges.ProxyList[0]
+
+	dbProxies, err := dbProxyList.Proxies(t.ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	key := fmt.Sprintf("tasks:proxies:%s", dbProxyList.ID.String())
+
+	locker := redisSync.NewMutex(key + ":locker")
+
+	if err = locker.LockContext(t.ctx); err != nil {
+		log.Error("error acquiring proxy mutex: ", err)
+		return nil, err
+	}
+
+	defer func() {
+		if ok, err := locker.UnlockContext(t.ctx); !ok || err != nil {
+			log.Error("error unlocking proxy mutex: ", err)
+		}
+	}()
+
+	proxies := rdb.SMembers(t.ctx, key).Val()
+
+	if len(proxies) == 0 {
+		var availablePool []interface{}
+
+		for _, proxy := range dbProxies {
+			var payload []byte
+			if payload, err = json.Marshal(&proxy); err != nil {
+				continue
+			}
+			availablePool = append(availablePool, string(payload))
+		}
+
+		rdb.SAdd(t.ctx, key, availablePool[1:]...)
+
+		return &module.Proxy{
+			Username: &dbProxies[0].Username,
+			Password: &dbProxies[0].Password,
+			IP:       dbProxies[0].IP,
+			Port:     dbProxies[0].Port,
+		}, nil
+	}
+
+	var proxy *module.Proxy
+
+	data := core.Base.GetRedis("cache").SPop(t.ctx, key).Val()
+
+	if err = json.Unmarshal([]byte(data), &proxy); err != nil {
+		return nil, err
+	}
+
+	return proxy, nil
+}
+
+func (t *Task) getAccount() (username, password string, err error) {
+	rdb := core.Base.GetRedis("cache")
+
+	dbAccounts, err := t.Edges.TaskGroup.Edges.App[0].QueryAccountGroups().Where(accountgroup.SiteEQ(accountgroup.Site(t.site))).First(t.ctx)
+	if err != nil {
+		return "", "", sonic.EntErr(err)
+	}
+
+	key := fmt.Sprintf("tasks:accounts:%s", dbAccounts.ID.String())
+
+	locker := redisSync.NewMutex(key + ":locker")
+
+	if err = locker.LockContext(t.ctx); err != nil {
+		log.Error("error acquiring account group mutex: ", err)
+		return "", "", err
+	}
+
+	defer func() {
+		if ok, err := locker.UnlockContext(t.ctx); !ok || err != nil {
+			log.Error("error unlocking account group mutex: ", err)
+		}
+	}()
+
+	accounts := rdb.SMembers(t.ctx, key).Val()
+
+	if len(accounts) == 0 {
+		var availablePool []interface{}
+
+		for u, p := range dbAccounts.Accounts {
+			availablePool = append(availablePool, fmt.Sprintf("%s:%s", u, p))
+		}
+
+		rdb.SAdd(t.ctx, key, availablePool[1:]...)
+
+		acc := strings.Split(availablePool[0].(string), ":")
+
+		return acc[0], acc[1], nil
+	}
+
+	data := core.Base.GetRedis("cache").SPop(t.ctx, key).Val()
+
+	acc := strings.Split(data, ":")
+
+	return acc[0], acc[1], nil
+}
+
+func (t *Task) getProfile() (*module.Profile, error) {
+	rdb := core.Base.GetRedis("cache")
+
+	profileGroup := t.Edges.ProfileGroup
+
+	key := fmt.Sprintf("tasks:profiles:%s", profileGroup.ID.String())
+
+	locker := redisSync.NewMutex(key + ":locker")
+
+	if err := locker.LockContext(t.ctx); err != nil {
+		log.Error("error acquiring profile group mutex: ", err)
+		return nil, err
+	}
+
+	defer func() {
+		if ok, err := locker.UnlockContext(t.ctx); !ok || err != nil {
+			log.Error("error unlocking account group mutex: ", err)
+		}
+	}()
+
+	accounts := rdb.SMembers(t.ctx, key).Val()
+
+	if len(accounts) == 0 {
+		var availablePool []interface{}
+		var toAppend *module.Profile
+
+		profiles, err := profileGroup.Profiles(t.ctx)
+		if err != nil {
+			return nil, sonic.EntErr(err)
+		}
+
+		for _, prof := range profiles {
+			shipping, err := prof.QueryShipping().First(t.ctx)
+			if err != nil {
+				return nil, sonic.EntErr(err)
+			}
+
+			shippingAddress, err := shipping.QueryShippingAddress().First(t.ctx)
+			if err != nil {
+				return nil, sonic.EntErr(err)
+			}
+
+			billing, err := prof.QueryBilling().First(t.ctx)
+			if err != nil {
+				return nil, sonic.EntErr(err)
+			}
+
+			toAppend = &module.Profile{
+				Email: prof.Email,
+				Shipping: &module.Shipping{
+					FirstName:   shipping.FirstName,
+					LastName:    shipping.LastName,
+					PhoneNumber: shipping.PhoneNumber,
+					ShippingAddress: &module.Address{
+						AddressLine:  shippingAddress.AddressLine,
+						AddressLine2: &shippingAddress.AddressLine2,
+						Country:      shippingAddress.Country,
+						State:        shippingAddress.State,
+						City:         shippingAddress.City,
+						ZIP:          shippingAddress.ZIP,
+					},
+					BillingAddress:    nil,
+					BillingIsShipping: shipping.BillingIsShipping,
+				},
+				Billing: &module.Billing{
+					Number:          billing.CardNumber,
+					ExpirationMonth: billing.ExpiryMonth,
+					ExpirationYear:  billing.ExpiryYear,
+					CVV:             billing.CVV,
+				},
+			}
+
+			if !shipping.BillingIsShipping {
+				billingAddress, err := shipping.QueryBillingAddress().First(t.ctx)
+				if err != nil {
+					log.Error("query billing address: ", err)
+					panic(err)
+				}
+				toAppend.Shipping.BillingAddress = &module.Address{
+					AddressLine:  billingAddress.AddressLine,
+					AddressLine2: &billingAddress.AddressLine2,
+					Country:      billingAddress.Country,
+					State:        billingAddress.State,
+					City:         billingAddress.City,
+					ZIP:          billingAddress.ZIP,
+				}
+			}
+
+			payload, err := json.Marshal(&toAppend)
+			if err != nil {
+				return nil, err
+			}
+
+			availablePool = append(availablePool, string(payload))
+		}
+
+		rdb.SAdd(t.ctx, key, availablePool[1:]...)
+
+		return availablePool[0].(*module.Profile), nil
+	}
+
+	data := core.Base.GetRedis("cache").SPop(t.ctx, key).Val()
+
+	var prof *module.Profile
+
+	if err := json.Unmarshal([]byte(data), &prof); err != nil {
+		return nil, err
+	}
+
+	return prof, nil
 }

@@ -60,7 +60,7 @@ func (s *Schedule) init() {
 
 			//start tasks
 			for startTime := range s.data {
-				if time.Since(startTime) >= -time.Second {
+				if time.Since(startTime) >= -time.Second*2 {
 					for i := range s.data[startTime] {
 						if s.data[startTime][i].taskStarted {
 							continue
