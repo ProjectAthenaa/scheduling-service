@@ -52,6 +52,10 @@ func (r *subscriptionResolver) TaskUpdates(ctx context.Context, subscriptionToke
 				continue
 			}
 
+			if status.Status == module.STATUS_STOPPED{
+				continue nextUpdate
+			}
+
 			for _, id := range updateIDs{
 				if id == status.Information["id"]{
 					continue nextUpdate
