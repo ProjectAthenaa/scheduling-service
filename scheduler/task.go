@@ -324,7 +324,11 @@ func (t *Task) getProxy() (*module.Proxy, error) {
 func (t *Task) getAccount() (username, password string, err error) {
 	rdb := core.Base.GetRedis("cache")
 
-	dbAccounts, err := t.Edges.TaskGroup.Edges.App[0].QueryAccountGroups().Where(accountgroup.SiteEQ(accountgroup.Site(t.site))).First(t.ctx)
+	app, _ := t.Edges.TaskGroup.App(t.ctx)
+
+
+
+	dbAccounts, err := app[0].QueryAccountGroups().Where(accountgroup.SiteEQ(accountgroup.Site(t.site))).First(t.ctx)
 	if err != nil {
 		return "", "", sonic.EntErr(err)
 	}
