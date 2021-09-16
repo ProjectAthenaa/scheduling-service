@@ -85,11 +85,13 @@ func (r *subscriptionResolver) TaskUpdates(ctx context.Context, subscriptionToke
 			}
 
 			if status.Status == module.STATUS_STOPPED {
-				if cmd, ok := status.Information["stoppedFromCMD"]; !(ok && cmd == "1"){
-					continue nextUpdate
+				if cmd, ok := status.Information["stoppedFromCMD"]; ok && cmd == "1" {
+					goto normalFlow
 				}
+				continue nextUpdate
 			}
 
+		normalFlow:
 			for _, id := range updateIDs {
 				if id == status.Information["id"] {
 					continue nextUpdate
@@ -106,7 +108,7 @@ func (r *subscriptionResolver) TaskUpdates(ctx context.Context, subscriptionToke
 			}
 
 			for k, v := range status.Information {
-				if k == "taskID" || k == "stoppedFromCMD"{
+				if k == "taskID" || k == "stoppedFromCMD" {
 					continue
 				}
 				returningStatus.Information[k] = v
