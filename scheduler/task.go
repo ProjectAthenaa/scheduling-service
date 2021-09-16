@@ -292,7 +292,7 @@ func (t *Task) getAccount() (username, password string, err error) {
 	rdb := core.Base.GetRedis("cache")
 
 	app, _ := t.Edges.TaskGroup.App(t.ctx)
-
+// J9K6W:VGAX7JUK:194.163.219.108:7924
 	dbAccounts, err := app[0].QueryAccountGroups().Where(accountgroup.SiteEQ(accountgroup.Site(t.site))).First(t.ctx)
 	if err != nil {
 		return "", "", sonic.EntErr(err)

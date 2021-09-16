@@ -104,7 +104,7 @@ func (r *subscriptionResolver) TaskUpdates(ctx context.Context, subscriptionToke
 			}
 
 			for k, v := range status.Information {
-				if k == "taskID" {
+				if k == "taskID" || k == "stoppedFromCMD"{
 					continue
 				}
 				returningStatus.Information[k] = v
