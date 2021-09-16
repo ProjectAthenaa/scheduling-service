@@ -5,6 +5,7 @@ package resolvers
 
 import (
 	"context"
+	"github.com/prometheus/common/log"
 	"sync"
 	"time"
 
@@ -41,19 +42,28 @@ func (r *mutationResolver) StartTasks(ctx context.Context, taskIDs []string) (bo
 
 	var wg sync.WaitGroup
 
+	db := core.Base.GetPg("pg")
+
 	for _, id := range taskIDs {
 		wg.Add(1)
 		id := id
 		go func() {
 			defer wg.Done()
-			tsk, err := user.Edges.App.QueryTaskGroups().QueryTasks().Where(task.ID(sonic.UUIDParser(id))).First(ctx)
-			if err != nil {
-				return
+
+			if _, err = db.Task.
+				Update().
+				Where(
+					task.ID(
+						sonic.UUIDParser(id),
+					),
+				).
+				SetStartTime(
+					time.Now().Add(time.Second),
+				).
+				Save(ctx); err != nil {
+				log.Error("error starting task: ", err)
 			}
 
-			if _, err = tsk.Update().SetStartTime(time.Now().Add(time.Second)).Save(ctx); err != nil {
-				return
-			}
 		}()
 
 	}
