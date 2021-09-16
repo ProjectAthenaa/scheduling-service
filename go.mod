@@ -4,7 +4,7 @@ go 1.17
 
 require (
 	github.com/99designs/gqlgen v0.14.0
-	github.com/ProjectAthenaa/sonic-core v0.0.0-20210912035839-dbbd857c34d4
+	github.com/ProjectAthenaa/sonic-core v0.0.0-20210916110828-539edf462309
 	github.com/getsentry/sentry-go v0.11.0
 	github.com/gin-gonic/gin v1.7.4
 	github.com/go-redis/redis/v8 v8.11.3
