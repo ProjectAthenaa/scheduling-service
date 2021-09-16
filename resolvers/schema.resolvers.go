@@ -5,18 +5,15 @@ package resolvers
 
 import (
 	"context"
-	"github.com/prometheus/common/log"
-	"sync"
-	"time"
-
 	"github.com/ProjectAthenaa/scheduling-service/graph/generated"
 	"github.com/ProjectAthenaa/scheduling-service/graph/model"
 	"github.com/ProjectAthenaa/scheduling-service/scheduler"
 	"github.com/ProjectAthenaa/sonic-core/protos/module"
 	"github.com/ProjectAthenaa/sonic-core/sonic"
 	"github.com/ProjectAthenaa/sonic-core/sonic/core"
+	"github.com/ProjectAthenaa/sonic-core/sonic/database/ent/predicate"
 	"github.com/ProjectAthenaa/sonic-core/sonic/database/ent/task"
-	user2 "github.com/ProjectAthenaa/sonic-core/sonic/database/ent/user"
+	"time"
 )
 
 func (r *mutationResolver) SendCommand(ctx context.Context, controlToken string, command model.Command) (bool, error) {
@@ -30,44 +27,28 @@ func (r *mutationResolver) SendCommand(ctx context.Context, controlToken string,
 }
 
 func (r *mutationResolver) StartTasks(ctx context.Context, taskIDs []string) (bool, error) {
-	userID, err := contextExtract(ctx)
+	_, err := contextExtract(ctx)
 	if err != nil {
 		return false, err
 	}
 
-	user, err := core.Base.GetPg("pg").User.Query().WithApp().Where(user2.ID(sonic.UUIDParser(*userID))).First(ctx)
-	if err != nil {
-		return false, sonic.EntErr(err)
-	}
-
-	var wg sync.WaitGroup
-
-	db := core.Base.GetPg("pg")
+	var predicates []predicate.Task
 
 	for _, id := range taskIDs {
-		wg.Add(1)
-		id := id
-		go func() {
-			defer wg.Done()
-
-			if _, err = db.Task.
-				Update().
-				Where(
-					task.ID(
-						sonic.UUIDParser(id),
-					),
-				).
-				SetStartTime(
-					time.Now().Add(time.Second),
-				).
-				Save(ctx); err != nil {
-				log.Error("error starting task: ", err)
-			}
-
-		}()
-
+		predicates = append(predicates, task.ID(sonic.UUIDParser(id)))
 	}
-	wg.Wait()
+
+	if _, err = core.Base.GetPg("pg").Task.
+		Update().
+		Where(
+			task.Or(predicates...),
+		).
+		SetStartTime(
+			time.Now().Add(time.Second),
+		).
+		Save(ctx); err != nil {
+		return false, err
+	}
 
 	return true, nil
 }
