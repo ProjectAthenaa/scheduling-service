@@ -13,8 +13,6 @@ import (
 	"github.com/ProjectAthenaa/sonic-core/sonic"
 )
 
-var updateIDs []string
-
 func (r *mutationResolver) SendCommand(ctx context.Context, controlToken string, command model.Command) (bool, error) {
 	if _, err := contextExtract(ctx); err != nil {
 		return false, err
@@ -34,6 +32,8 @@ func (r *queryResolver) GetScheduledTasks(ctx context.Context) ([]*model.Task, e
 }
 
 func (r *subscriptionResolver) TaskUpdates(ctx context.Context, subscriptionTokens []string) (<-chan *model.TaskStatus, error) {
+	var updateIDs []string
+
 	updates := make(chan *model.TaskStatus)
 	pubSub, closePubSub, err := scheduler.Subscribe(ctx, subscriptionTokens...)
 	if err != nil {
@@ -43,8 +43,7 @@ func (r *subscriptionResolver) TaskUpdates(ctx context.Context, subscriptionToke
 		var status module.Status
 		defer pubSub.Close()
 		defer closePubSub()
-	nextUpdate:
-		for update := range pubSub.Channel() {
+		nextUpdate: for update := range pubSub.Channel() {
 			if err = json.Unmarshal([]byte(update.Payload), &status); err != nil {
 				updates <- &model.TaskStatus{
 					Status: model.StatusError,
@@ -53,17 +52,18 @@ func (r *subscriptionResolver) TaskUpdates(ctx context.Context, subscriptionToke
 				continue
 			}
 
-			if status.Status == module.STATUS_STOPPED {
+			if status.Status == module.STATUS_STOPPED{
 				continue nextUpdate
 			}
 
-			for _, id := range updateIDs {
-				if id == status.Information["id"] {
+			for _, id := range updateIDs{
+				if id == status.Information["id"]{
 					continue nextUpdate
 				}
 			}
 
 			updateIDs = append(updateIDs, status.Information["id"])
+
 
 			returningStatus := &model.TaskStatus{
 				TaskID:      status.Information["taskID"],
