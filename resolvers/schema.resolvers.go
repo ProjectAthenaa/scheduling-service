@@ -43,6 +43,7 @@ func (r *mutationResolver) StartTasks(ctx context.Context, taskIDs []string) (bo
 
 	for _, id := range taskIDs {
 		wg.Add(1)
+		id := id
 		go func() {
 			defer wg.Done()
 			tsk, err := user.Edges.App.QueryTaskGroups().QueryTasks().Where(task.ID(sonic.UUIDParser(id))).First(ctx)
