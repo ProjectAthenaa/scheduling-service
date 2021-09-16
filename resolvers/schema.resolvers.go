@@ -5,6 +5,10 @@ package resolvers
 
 import (
 	"context"
+	"github.com/ProjectAthenaa/sonic-core/sonic/core"
+	"github.com/ProjectAthenaa/sonic-core/sonic/database/ent/task"
+	user2 "github.com/ProjectAthenaa/sonic-core/sonic/database/ent/user"
+	"time"
 
 	"github.com/ProjectAthenaa/scheduling-service/graph/generated"
 	"github.com/ProjectAthenaa/scheduling-service/graph/model"
@@ -20,6 +24,29 @@ func (r *mutationResolver) SendCommand(ctx context.Context, controlToken string,
 	if err := scheduler.PublishCommand(ctx, controlToken, command); err != nil {
 		return false, err
 	}
+	return true, nil
+}
+
+func (r *mutationResolver) StartTask(ctx context.Context, taskID string) (bool, error) {
+	userID, err := contextExtract(ctx)
+	if err != nil {
+		return false, err
+	}
+
+	user, err := core.Base.GetPg("pg").User.Query().WithApp().Where(user2.ID(sonic.UUIDParser(*userID))).First(ctx)
+	if err != nil {
+		return false, sonic.EntErr(err)
+	}
+
+	tsk, err := user.Edges.App.QueryTaskGroups().QueryTasks().Where(task.ID(sonic.UUIDParser(taskID))).First(ctx)
+	if err != nil {
+		return false, sonic.EntErr(err)
+	}
+
+	if _, err = tsk.Update().SetStartTime(time.Now().Add(time.Second)).Save(ctx); err != nil {
+		return false, sonic.EntErr(err)
+	}
+
 	return true, nil
 }
 
@@ -43,7 +70,8 @@ func (r *subscriptionResolver) TaskUpdates(ctx context.Context, subscriptionToke
 		var status module.Status
 		defer pubSub.Close()
 		defer closePubSub()
-		nextUpdate: for update := range pubSub.Channel() {
+	nextUpdate:
+		for update := range pubSub.Channel() {
 			if err = json.Unmarshal([]byte(update.Payload), &status); err != nil {
 				updates <- &model.TaskStatus{
 					Status: model.StatusError,
@@ -52,18 +80,17 @@ func (r *subscriptionResolver) TaskUpdates(ctx context.Context, subscriptionToke
 				continue
 			}
 
-			if status.Status == module.STATUS_STOPPED{
+			if status.Status == module.STATUS_STOPPED {
 				continue nextUpdate
 			}
 
-			for _, id := range updateIDs{
-				if id == status.Information["id"]{
+			for _, id := range updateIDs {
+				if id == status.Information["id"] {
 					continue nextUpdate
 				}
 			}
 
 			updateIDs = append(updateIDs, status.Information["id"])
-
 
 			returningStatus := &model.TaskStatus{
 				TaskID:      status.Information["taskID"],

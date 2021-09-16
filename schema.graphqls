@@ -63,6 +63,7 @@ type Query{
 
 type Mutation{
     sendCommand(ControlToken: String!, Command: COMMAND!): Boolean!
+    startTask(taskID: String!): Boolean!
 }
 
 type Subscription {
