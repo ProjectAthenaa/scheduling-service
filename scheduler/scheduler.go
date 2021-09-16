@@ -46,7 +46,7 @@ func Subscribe(ctx context.Context, tokens ...string) (*redis.PubSub, func() err
 		return nil
 	}
 
-	return core.Base.GetRedis("cache").Subscribe(ctx, channelNames...), closePubSub, nil
+	return pubsub, closePubSub, nil
 }
 
 //PublishCommand publishes the given command to the channel given, if the task exists
