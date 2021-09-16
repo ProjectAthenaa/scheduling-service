@@ -38,7 +38,8 @@ func (r *mutationResolver) StartTasks(ctx context.Context, taskIDs []string) (bo
 		predicates = append(predicates, task.ID(sonic.UUIDParser(id)))
 	}
 
-	if _, err = core.Base.GetPg("pg").Task.
+	if _, err = core.Base.GetPg("pg").
+		Task.
 		Update().
 		Where(
 			task.Or(predicates...),
