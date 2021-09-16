@@ -5,7 +5,6 @@ package resolvers
 
 import (
 	"context"
-	"github.com/ProjectAthenaa/sonic-core/sonic/database/ent/task"
 	"sync"
 	"time"
 
@@ -15,6 +14,7 @@ import (
 	"github.com/ProjectAthenaa/sonic-core/protos/module"
 	"github.com/ProjectAthenaa/sonic-core/sonic"
 	"github.com/ProjectAthenaa/sonic-core/sonic/core"
+	"github.com/ProjectAthenaa/sonic-core/sonic/database/ent/task"
 	user2 "github.com/ProjectAthenaa/sonic-core/sonic/database/ent/user"
 )
 
@@ -28,7 +28,7 @@ func (r *mutationResolver) SendCommand(ctx context.Context, controlToken string,
 	return true, nil
 }
 
-func (r *mutationResolver) StartTask(ctx context.Context, taskIDs []string) (bool, error) {
+func (r *mutationResolver) StartTasks(ctx context.Context, taskIDs []string) (bool, error) {
 	userID, err := contextExtract(ctx)
 	if err != nil {
 		return false, err
