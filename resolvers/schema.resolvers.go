@@ -85,7 +85,9 @@ func (r *subscriptionResolver) TaskUpdates(ctx context.Context, subscriptionToke
 			}
 
 			if status.Status == module.STATUS_STOPPED {
-				continue nextUpdate
+				if cmd, ok := status.Information["stoppedFromCMD"]; !(ok && cmd == "1"){
+					continue nextUpdate
+				}
 			}
 
 			for _, id := range updateIDs {
