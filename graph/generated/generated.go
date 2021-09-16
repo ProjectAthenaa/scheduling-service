@@ -48,7 +48,7 @@ type DirectiveRoot struct {
 type ComplexityRoot struct {
 	Mutation struct {
 		SendCommand func(childComplexity int, controlToken string, command model.Command) int
-		StartTask   func(childComplexity int, taskID string) int
+		StartTask   func(childComplexity int, taskIDs []string) int
 	}
 
 	Query struct {
@@ -76,7 +76,7 @@ type ComplexityRoot struct {
 
 type MutationResolver interface {
 	SendCommand(ctx context.Context, controlToken string, command model.Command) (bool, error)
-	StartTask(ctx context.Context, taskID string) (bool, error)
+	StartTask(ctx context.Context, taskIDs []string) (bool, error)
 }
 type QueryResolver interface {
 	GetScheduledTasks(ctx context.Context) ([]*model.Task, error)
@@ -122,7 +122,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			return 0, false
 		}
 
-		return e.complexity.Mutation.StartTask(childComplexity, args["taskID"].(string)), true
+		return e.complexity.Mutation.StartTask(childComplexity, args["taskIDs"].([]string)), true
 
 	case "Query.getScheduledTasks":
 		if e.complexity.Query.GetScheduledTasks == nil {
@@ -345,7 +345,7 @@ type Query{
 
 type Mutation{
     sendCommand(ControlToken: String!, Command: COMMAND!): Boolean!
-    startTask(taskID: String!): Boolean!
+    startTask(taskIDs: [String!]): Boolean!
 }
 
 type Subscription {
@@ -385,15 +385,15 @@ func (ec *executionContext) field_Mutation_sendCommand_args(ctx context.Context,
 func (ec *executionContext) field_Mutation_startTask_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 	args := map[string]interface{}{}
-	var arg0 string
-	if tmp, ok := rawArgs["taskID"]; ok {
-		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("taskID"))
-		arg0, err = ec.unmarshalNString2string(ctx, tmp)
+	var arg0 []string
+	if tmp, ok := rawArgs["taskIDs"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("taskIDs"))
+		arg0, err = ec.unmarshalOString2ᚕstringᚄ(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
 	}
-	args["taskID"] = arg0
+	args["taskIDs"] = arg0
 	return args, nil
 }
 
@@ -532,7 +532,7 @@ func (ec *executionContext) _Mutation_startTask(ctx context.Context, field graph
 	fc.Args = args
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().StartTask(rctx, args["taskID"].(string))
+		return ec.resolvers.Mutation().StartTask(rctx, args["taskIDs"].([]string))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -3007,6 +3007,48 @@ func (ec *executionContext) unmarshalOString2string(ctx context.Context, v inter
 
 func (ec *executionContext) marshalOString2string(ctx context.Context, sel ast.SelectionSet, v string) graphql.Marshaler {
 	return graphql.MarshalString(v)
+}
+
+func (ec *executionContext) unmarshalOString2ᚕstringᚄ(ctx context.Context, v interface{}) ([]string, error) {
+	if v == nil {
+		return nil, nil
+	}
+	var vSlice []interface{}
+	if v != nil {
+		if tmp1, ok := v.([]interface{}); ok {
+			vSlice = tmp1
+		} else {
+			vSlice = []interface{}{v}
+		}
+	}
+	var err error
+	res := make([]string, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNString2string(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) marshalOString2ᚕstringᚄ(ctx context.Context, sel ast.SelectionSet, v []string) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	ret := make(graphql.Array, len(v))
+	for i := range v {
+		ret[i] = ec.marshalNString2string(ctx, sel, v[i])
+	}
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
 }
 
 func (ec *executionContext) unmarshalOString2ᚖstring(ctx context.Context, v interface{}) (*string, error) {

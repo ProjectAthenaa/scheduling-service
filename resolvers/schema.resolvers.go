@@ -5,9 +5,8 @@ package resolvers
 
 import (
 	"context"
-	"github.com/ProjectAthenaa/sonic-core/sonic/core"
 	"github.com/ProjectAthenaa/sonic-core/sonic/database/ent/task"
-	user2 "github.com/ProjectAthenaa/sonic-core/sonic/database/ent/user"
+	"sync"
 	"time"
 
 	"github.com/ProjectAthenaa/scheduling-service/graph/generated"
@@ -15,6 +14,8 @@ import (
 	"github.com/ProjectAthenaa/scheduling-service/scheduler"
 	"github.com/ProjectAthenaa/sonic-core/protos/module"
 	"github.com/ProjectAthenaa/sonic-core/sonic"
+	"github.com/ProjectAthenaa/sonic-core/sonic/core"
+	user2 "github.com/ProjectAthenaa/sonic-core/sonic/database/ent/user"
 )
 
 func (r *mutationResolver) SendCommand(ctx context.Context, controlToken string, command model.Command) (bool, error) {
@@ -27,7 +28,7 @@ func (r *mutationResolver) SendCommand(ctx context.Context, controlToken string,
 	return true, nil
 }
 
-func (r *mutationResolver) StartTask(ctx context.Context, taskID string) (bool, error) {
+func (r *mutationResolver) StartTask(ctx context.Context, taskIDs []string) (bool, error) {
 	userID, err := contextExtract(ctx)
 	if err != nil {
 		return false, err
@@ -38,14 +39,24 @@ func (r *mutationResolver) StartTask(ctx context.Context, taskID string) (bool, 
 		return false, sonic.EntErr(err)
 	}
 
-	tsk, err := user.Edges.App.QueryTaskGroups().QueryTasks().Where(task.ID(sonic.UUIDParser(taskID))).First(ctx)
-	if err != nil {
-		return false, sonic.EntErr(err)
-	}
+	var wg sync.WaitGroup
 
-	if _, err = tsk.Update().SetStartTime(time.Now().Add(time.Second)).Save(ctx); err != nil {
-		return false, sonic.EntErr(err)
+	for _, id := range taskIDs {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			tsk, err := user.Edges.App.QueryTaskGroups().QueryTasks().Where(task.ID(sonic.UUIDParser(id))).First(ctx)
+			if err != nil {
+				return
+			}
+
+			if _, err = tsk.Update().SetStartTime(time.Now().Add(time.Second)).Save(ctx); err != nil {
+				return
+			}
+		}()
+
 	}
+	wg.Wait()
 
 	return true, nil
 }
