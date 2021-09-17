@@ -121,6 +121,9 @@ addTask:
 
 //deleteOlderEntries checks the data set every 15 minutes for any map keys that have exceeded the 1 hour task timeout
 func (s *Schedule) deleteOlderEntries() {
+	defer func() {
+		if a := recover(); a != nil{}
+	}()
 	select {
 	case <-s.ctx.Done():
 		return
