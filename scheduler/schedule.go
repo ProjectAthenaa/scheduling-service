@@ -63,9 +63,9 @@ func (s *Schedule) init() {
 				fmt.Println(s.data[startTime])
 				if time.Since(startTime) >= -time.Second*2 {
 					for i := range s.data[startTime] {
-						if s.data[startTime][i].taskStarted {
-							continue
-						}
+						//if s.data[startTime][i].taskStarted {
+						//	continue
+						//}
 
 						if err := s.data[startTime][i].start(s.ctx); err != nil {
 							log.Error("error starting task", err, "task_id: ", s.data[startTime][i].ID.String())
