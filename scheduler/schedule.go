@@ -132,7 +132,7 @@ func (s *Schedule) startMonitors() {
 
 	rdb := core.Base.GetRedis("cache")
 	pipe := rdb.Pipeline()
-	var wg *sync.WaitGroup
+	var wg  = &sync.WaitGroup{}
 	var uniqueTasks = &sync.Map{}
 
 	for _, tk := range s.tasks {
