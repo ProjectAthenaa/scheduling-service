@@ -12,6 +12,7 @@ import (
 )
 
 type Schedule struct {
+	tasks       []*Task
 	data        map[time.Time][]*Task
 	taskLockers map[uuid.UUID]*sync.Mutex
 	locker      *sync.Mutex
@@ -42,6 +43,7 @@ func (s *Schedule) init() {
 	s.data = map[time.Time][]*Task{}
 	s.locker = &sync.Mutex{}
 	s.taskLockers = map[uuid.UUID]*sync.Mutex{}
+	s.tasks = []*Task{}
 
 	go func() {
 		//start population as a goroutine
@@ -59,6 +61,16 @@ func (s *Schedule) init() {
 			go s.startMonitors()
 
 			//start tasks
+			for i := range s.tasks{
+				if s.tasks[i].taskStarted{
+					continue
+				}
+
+
+			}
+
+
+
 			for startTime := range s.data {
 				if time.Since(startTime) >= -time.Second*2 {
 					for i := range s.data[startTime] {
@@ -121,7 +133,8 @@ addTask:
 //deleteOlderEntries checks the data set every 15 minutes for any map keys that have exceeded the 1 hour task timeout
 func (s *Schedule) deleteOlderEntries() {
 	defer func() {
-		if a := recover(); a != nil{}
+		if a := recover(); a != nil {
+		}
 	}()
 	select {
 	case <-s.ctx.Done():

@@ -52,7 +52,6 @@ type Task struct {
 	stopped           bool
 }
 
-
 //getMonitorID returns the monitor id of a task based on its lookup values
 func (t *Task) getMonitorID() string {
 	prefix := fmt.Sprintf("monitors:%s:", t.site)
@@ -227,7 +226,7 @@ func (t *Task) setStatus(status module.STATUS, msg string) {
 
 func (t *Task) release() {
 	core.Base.GetRedis("cache").SRem(context.Background(), "scheduler:processing", t.taskID)
-	t.stopped = true
+	t.taskStarted = false
 }
 
 func (t *Task) getProxy() (*module.Proxy, error) {
@@ -292,7 +291,7 @@ func (t *Task) getAccount() (username, password string, err error) {
 	rdb := core.Base.GetRedis("cache")
 
 	app, _ := t.Edges.TaskGroup.App(t.ctx)
-// J9K6W:VGAX7JUK:194.163.219.108:7924
+	// J9K6W:VGAX7JUK:194.163.219.108:7924
 	dbAccounts, err := app[0].QueryAccountGroups().Where(accountgroup.SiteEQ(accountgroup.Site(t.site))).First(t.ctx)
 	if err != nil {
 		return "", "", sonic.EntErr(err)
