@@ -121,35 +121,30 @@ addTask:
 
 //deleteOlderEntries checks the data set every 15 minutes for any map keys that have exceeded the 1 hour task timeout
 func (s *Schedule) deleteOlderEntries() {
-	for range time.Tick(time.Second) {
-		select {
-		case <-s.ctx.Done():
-			return
-		default:
-			break
-		}
-		s.locker.Lock()
-
-		for startTime, tasks := range s.data {
-			if startTime.Sub(time.Now()) >= time.Minute {
-				delete(s.data, startTime)
-			}
-
-			for i := range tasks {
-				s.taskLockers[tasks[i].ID].Lock()
-				if tasks[i].stopped {
-					s.data[startTime] = removeTask(tasks, i)
-				}
-				s.taskLockers[tasks[i].ID].Unlock()
-				delete(s.taskLockers, tasks[i].ID)
-			}
-
-		}
-
-		//for _, tasks := range s.
-
-		s.locker.Unlock()
+	select {
+	case <-s.ctx.Done():
+		return
+	default:
+		break
 	}
+	s.locker.Lock()
+	defer s.locker.Unlock()
+	for startTime, tasks := range s.data {
+		if startTime.Sub(time.Now()) >= time.Minute {
+			delete(s.data, startTime)
+		}
+
+		for i := range tasks {
+			s.taskLockers[tasks[i].ID].Lock()
+			if tasks[i].stopped {
+				s.data[startTime] = removeTask(tasks, i)
+			}
+			s.taskLockers[tasks[i].ID].Unlock()
+			delete(s.taskLockers, tasks[i].ID)
+		}
+
+	}
+	s.locker.Unlock()
 }
 
 //startMonitors starts the monitors for each task after first isolating the unique tasks
