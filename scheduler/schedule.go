@@ -47,7 +47,7 @@ func (s *Schedule) init() {
 		//start population as a goroutine
 		go s.populate()
 		//check for new to-start tasks every 200ms
-		for range time.Tick(time.Millisecond * 200) {
+		for {
 			select {
 			case <-s.ctx.Done():
 				return
@@ -60,12 +60,11 @@ func (s *Schedule) init() {
 
 			//start tasks
 			for startTime := range s.data {
-				fmt.Println(s.data[startTime])
 				if time.Since(startTime) >= -time.Second*2 {
 					for i := range s.data[startTime] {
-						//if s.data[startTime][i].taskStarted {
-						//	continue
-						//}
+						if s.data[startTime][i].taskStarted {
+							continue
+						}
 
 						if err := s.data[startTime][i].start(s.ctx); err != nil {
 							log.Error("error starting task", err, "task_id: ", s.data[startTime][i].ID.String())
