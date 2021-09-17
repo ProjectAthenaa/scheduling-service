@@ -11,8 +11,9 @@ import (
 	"github.com/ProjectAthenaa/sonic-core/protos/module"
 	"github.com/ProjectAthenaa/sonic-core/sonic"
 	"github.com/ProjectAthenaa/sonic-core/sonic/core"
-	"github.com/ProjectAthenaa/sonic-core/sonic/database/ent/predicate"
 	"github.com/ProjectAthenaa/sonic-core/sonic/database/ent/task"
+	user2 "github.com/ProjectAthenaa/sonic-core/sonic/database/ent/user"
+	"sync"
 	"time"
 )
 
@@ -27,29 +28,53 @@ func (r *mutationResolver) SendCommand(ctx context.Context, controlToken string,
 }
 
 func (r *mutationResolver) StartTasks(ctx context.Context, taskIDs []string) (bool, error) {
-	_, err := contextExtract(ctx)
+	userID, err := contextExtract(ctx)
 	if err != nil {
 		return false, err
 	}
 
-	var predicates []predicate.Task
+	user, err := core.Base.GetPg("pg").User.Query().WithApp().Where(user2.ID(sonic.UUIDParser(*userID))).First(ctx)
+	if err != nil {
+		return false, sonic.EntErr(err)
+	}
+
+	var wg sync.WaitGroup
 
 	for _, id := range taskIDs {
-		predicates = append(predicates, task.ID(sonic.UUIDParser(id)))
-	}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			tsk, err := user.Edges.App.QueryTaskGroups().QueryTasks().Where(task.ID(sonic.UUIDParser(id))).First(ctx)
+			if err != nil {
+				return
+			}
 
-	if _, err = core.Base.GetPg("pg").
-		Task.
-		Update().
-		Where(
-			task.Or(predicates...),
-		).
-		SetStartTime(
-			time.Now().Add(time.Second),
-		).
-		Save(ctx); err != nil {
-		return false, err
+			if _, err = tsk.Update().SetStartTime(time.Now().Add(time.Second)).Save(ctx); err != nil {
+				return
+			}
+		}()
+
 	}
+	wg.Wait()
+
+	//var predicates []predicate.Task
+	//
+	//for _, id := range taskIDs {
+	//	predicates = append(predicates, task.ID(sonic.UUIDParser(id)))
+	//}
+	//
+	//if _, err = core.Base.GetPg("pg").
+	//	Task.
+	//	Update().
+	//	Where(
+	//		task.Or(predicates...),
+	//	).
+	//	SetStartTime(
+	//		time.Now().Add(time.Second),
+	//	).
+	//	Save(ctx); err != nil {
+	//	return false, err
+	//}
 
 	return true, nil
 }
