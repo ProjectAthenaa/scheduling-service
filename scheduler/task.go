@@ -130,7 +130,7 @@ func (t *Task) processUpdates() {
 
 		switch status.Status {
 		case module.STATUS_STOPPED, module.STATUS_CHECKED_OUT:
-			log.Info("Task stopped or checkout, releasing resources...", " | ", &t)
+			//log.Info("Task stopped or checkout, releasing resources...", " | ", &t)
 			go t.release()
 		default:
 			continue
@@ -228,7 +228,6 @@ func (t *Task) setStatus(status module.STATUS, msg string) {
 func (t *Task) release() {
 	core.Base.GetRedis("cache").SRem(context.Background(), "scheduler:processing", t.taskID)
 	t.stopped = true
-	scheduler.deleteOlderEntries()
 }
 
 func (t *Task) getProxy() (*module.Proxy, error) {

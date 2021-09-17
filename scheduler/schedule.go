@@ -80,7 +80,7 @@ func (s *Schedule) init() {
 //add appends the task to the appropriate task slice in data
 func (s *Schedule) add(taskID string) {
 	defer func() {
-		log.Info("Loaded Task| ", taskID)
+		log.Info("Loaded Task | ", taskID)
 	}()
 	select {
 	case <-s.ctx.Done():

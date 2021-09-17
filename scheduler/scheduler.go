@@ -37,6 +37,7 @@ func Subscribe(ctx context.Context, tokens ...string) (*redis.PubSub, func() err
 		channelNames = append(channelNames, fmt.Sprintf("tasks:updates:%s", token))
 	}
 
+	fmt.Println(channelNames)
 	pubsub := core.Base.GetRedis("cache").Subscribe(ctx, channelNames...)
 
 	closePubSub := func() error {
