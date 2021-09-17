@@ -5,19 +5,16 @@ import (
 	"fmt"
 	"github.com/ProjectAthenaa/scheduling-service/graph/model"
 	"github.com/ProjectAthenaa/sonic-core/sonic/core"
-	"github.com/google/uuid"
 	"github.com/prometheus/common/log"
 	"sync"
 	"time"
 )
 
 type Schedule struct {
-	tasks       []*Task
-	data        map[time.Time][]*Task
-	taskLockers map[uuid.UUID]*sync.Mutex
-	locker      *sync.Mutex
-	ctx         context.Context
-	cancelFunc  context.CancelFunc
+	tasks      []*Task
+	locker     *sync.Mutex
+	ctx        context.Context
+	cancelFunc context.CancelFunc
 }
 
 //NewScheduler creates a new Schedule object with a cancel func
@@ -31,18 +28,14 @@ func (s *Schedule) init() {
 	defer func() {
 		if a := recover(); a != nil {
 			fmt.Println("Recovered, terminating all tasks")
-			for _, tasks := range s.data {
-				for _, task := range tasks {
-					fmt.Println("Deallocating Task: ", task.taskID)
-					go removeFromProcessingList(task.taskID)
-				}
+			for i := range s.tasks {
+				fmt.Println("Deallocating Task: ", s.tasks[i])
+				go removeFromProcessingList(s.tasks[i].ID.String())
 			}
 		}
 	}()
 
-	s.data = map[time.Time][]*Task{}
 	s.locker = &sync.Mutex{}
-	s.taskLockers = map[uuid.UUID]*sync.Mutex{}
 	s.tasks = []*Task{}
 
 	go func() {
@@ -61,28 +54,15 @@ func (s *Schedule) init() {
 			go s.startMonitors()
 
 			//start tasks
-			for i := range s.tasks{
-				if s.tasks[i].taskStarted{
+			for i := range s.tasks {
+				if s.tasks[i].taskStarted {
 					continue
 				}
 
-
-			}
-
-
-
-			for startTime := range s.data {
-				if time.Since(startTime) >= -time.Second*2 {
-					for i := range s.data[startTime] {
-						if s.data[startTime][i].taskStarted {
-							continue
-						}
-
-						if err := s.data[startTime][i].start(s.ctx); err != nil {
-							log.Error("error starting task", err, "task_id: ", s.data[startTime][i].ID.String())
-						}
-					}
+				if time.Since(s.tasks[i].startTime) >= -time.Second*2 {
+					s.tasks[i].start(s.ctx)
 				}
+
 			}
 		}
 
@@ -103,30 +83,16 @@ func (s *Schedule) add(taskID string) {
 
 	task := s.loadTask(taskID)
 
-	//s.locker.Lock()
-	//defer s.locker.Unlock()
+	s.locker.Lock()
+	defer s.locker.Unlock()
 
-	//loop through the data to check if task already exists
-	for t := range s.data {
-		for i := range s.data[t] {
-			if s.data[t][i].ID == task.ID && s.data[t][i].StartTime == task.StartTime {
-				if s.data[t][i].taskStarted {
-					go s.data[t][i].stop()
-				}
-				s.data[t][i] = task
-				return
-			} else if s.data[t][i] != nil {
-				s.data[t] = removeTask(s.data[t], i)
-				goto addTask
-			}
-		}
-		if len(s.data[t]) == 0 {
-			delete(s.data, t)
+	for i := range s.tasks {
+		if s.tasks[i].ID == task.ID {
+			s.tasks[i] = task
+			return
 		}
 	}
-	//append task to the correct data slice
-addTask:
-	s.data[*task.StartTime] = append(s.data[*task.StartTime], task)
+
 	go task.getPayload()
 }
 
@@ -144,22 +110,13 @@ func (s *Schedule) deleteOlderEntries() {
 	}
 	s.locker.Lock()
 	defer s.locker.Unlock()
-	for startTime, tasks := range s.data {
-		if startTime.Sub(time.Now()) >= time.Minute {
-			delete(s.data, startTime)
-		}
 
-		for i := range tasks {
-			s.taskLockers[tasks[i].ID].Lock()
-			if tasks[i].stopped {
-				s.data[startTime] = removeTask(tasks, i)
-			}
-			s.taskLockers[tasks[i].ID].Unlock()
-			delete(s.taskLockers, tasks[i].ID)
+	for i := range s.tasks {
+		if s.tasks[i].stopped {
+			s.tasks = removeTask(s.tasks, i)
+			continue
 		}
-
 	}
-	s.locker.Unlock()
 }
 
 //startMonitors starts the monitors for each task after first isolating the unique tasks
@@ -173,77 +130,70 @@ func (s *Schedule) startMonitors() {
 	s.locker.Lock()
 	defer s.locker.Unlock()
 
-	for k := range s.data {
-		if k.Sub(time.Now()) <= time.Minute {
-			var uniqueTasks sync.Map
-			var wg sync.WaitGroup
+	rdb := core.Base.GetRedis("cache")
+	pipe := rdb.Pipeline()
+	var wg *sync.WaitGroup
+	var uniqueTasks = &sync.Map{}
 
-			tasks := s.getTasks(k)
-			rdb := core.Base.GetRedis("cache")
+	for _, tk := range s.tasks {
+		wg.Add(1)
+		tk := tk
+		go func() {
+			defer wg.Done()
+			mID := tk.getMonitorID()
+			tk.monitorChannel = mID
+			uniqueTasks.Store(mID, tk)
 
-			pipe := rdb.Pipeline()
-
-			for _, tk := range tasks {
-				wg.Add(1)
-				tk := tk
-				go func() {
-					defer wg.Done()
-					mID := tk.getMonitorID()
-					tk.monitorChannel = mID
-					uniqueTasks.Store(mID, tk)
-
-					proxylist, err := tk.Edges.ProxyListOrErr()
-					if err != nil {
-						log.Error("load proxy list for task: ", tk.taskID, " error: ", err)
-						return
-					}
-
-					proxies, _ := proxylist[0].Proxies(tk.ctx)
-
-					var redisKey = string("proxies:" + tk.site)
-
-					for _, proxy := range proxies {
-						if proxy.Username != "" && proxy.Password != "" {
-							pipe.Publish(tk.ctx, redisKey, fmt.Sprintf("%s:%s@%s:%s", proxy.Username, proxy.Password, proxy.IP, proxy.Port))
-							continue
-						}
-						pipe.Publish(tk.ctx, redisKey, fmt.Sprintf("%s:%s", proxy.IP, proxy.Port))
-					}
-
-				}()
-			}
-			wg.Wait()
-
-			_, err := pipe.Exec(context.Background())
+			proxylist, err := tk.Edges.ProxyListOrErr()
 			if err != nil {
-				log.Error("error sending proxies: ", err)
+				log.Error("load proxy list for task: ", tk.taskID, " error: ", err)
+				return
 			}
 
-			uniqueTasks.Range(func(key, value interface{}) bool {
-				tk := value.(*Task)
-				if !tk.monitorStarted {
-					if err := tk.startMonitor(s.ctx); err != nil {
-						log.Error("error starting monitor:", err)
-						return true
-					}
-					tk.monitorStarted = true
-				} else {
-					return true
+			proxies, _ := proxylist[0].Proxies(tk.ctx)
+
+			var redisKey = string("proxies:" + tk.site)
+
+			for _, proxy := range proxies {
+				if proxy.Username != "" && proxy.Password != "" {
+					pipe.Publish(tk.ctx, redisKey, fmt.Sprintf("%s:%s@%s:%s", proxy.Username, proxy.Password, proxy.IP, proxy.Port))
+					continue
 				}
+				pipe.Publish(tk.ctx, redisKey, fmt.Sprintf("%s:%s", proxy.IP, proxy.Port))
+			}
 
-				go func() {
-					for _, tsk := range tasks {
-						if tsk.monitorChannel == tk.monitorChannel {
-							tsk.monitorStarted = true
-						}
-					}
-				}()
-
-				return true
-			})
-
-		}
+		}()
 	}
+	wg.Wait()
+
+	_, err := pipe.Exec(context.Background())
+	if err != nil {
+		log.Error("error sending proxies: ", err)
+	}
+
+	uniqueTasks.Range(func(key, value interface{}) bool {
+		tk := value.(*Task)
+		if !tk.monitorStarted {
+			if err := tk.startMonitor(s.ctx); err != nil {
+				log.Error("error starting monitor:", err)
+				return true
+			}
+			tk.monitorStarted = true
+		} else {
+			return true
+		}
+
+		go func() {
+			for i := range s.tasks {
+				if s.tasks[i].monitorChannel == tk.monitorChannel {
+					s.tasks[i].monitorStarted = true
+				}
+			}
+		}()
+
+		return true
+	})
+
 }
 
 //populate spawns the deleteOlderEntries func as a goroutine, creates a goroutine to listen for deleted tasks, and retrieves
@@ -255,11 +205,9 @@ func (s *Schedule) populate() {
 		pubSub := rdb.Subscribe(s.ctx, "scheduler:tasks-updated")
 
 		for taskID := range pubSub.Channel() {
-			for _, tasks := range s.data {
-				for _, task := range tasks {
-					if task.ID.String() == taskID.Payload {
-						go s.add(taskID.Payload)
-					}
+			for i := range s.tasks {
+				if s.tasks[i].ID.String() == taskID.Payload {
+					go s.add(taskID.Payload)
 				}
 			}
 		}
@@ -282,16 +230,14 @@ func (s *Schedule) populate() {
 func (s *Schedule) getUserTasks(userID string) (tasks []*model.Task) {
 	s.locker.Lock()
 	defer s.locker.Unlock()
-	for k, v := range s.data {
-		for _, t := range v {
-			if t.userID == userID {
-				tasks = append(tasks, &model.Task{
-					ID:                t.taskID,
-					SubscriptionToken: t.subscriptionToken,
-					ControlToken:      t.controlToken,
-					StartTime:         k,
-				})
-			}
+	for i := range s.tasks {
+		if s.tasks[i].userID == userID {
+			tasks = append(tasks, &model.Task{
+				ID:                s.tasks[i].taskID,
+				SubscriptionToken: s.tasks[i].subscriptionToken,
+				ControlToken:      s.tasks[i].controlToken,
+				StartTime:         s.tasks[i].startTime,
+			})
 		}
 	}
 	return
@@ -304,10 +250,8 @@ func (s *Schedule) getData() map[time.Time][]*Task {
 
 	var tasks = map[time.Time][]*Task{}
 
-	for k, tks := range s.data {
-		for _, tk := range tks {
-			tasks[k] = append(tasks[k], tk)
-		}
+	for i := range s.tasks {
+		tasks[s.tasks[i].startTime] = append(tasks[s.tasks[i].startTime], s.tasks[i])
 	}
 
 	return tasks
@@ -315,9 +259,9 @@ func (s *Schedule) getData() map[time.Time][]*Task {
 
 func (s *Schedule) getTasks(t time.Time) []*Task {
 	var tasks []*Task
-	if tks, ok := s.data[t]; ok {
-		for _, tk := range tks {
-			tasks = append(tasks, tk)
+	for i := range s.tasks {
+		if s.tasks[i].startTime == t {
+			tasks = append(tasks, s.tasks[i])
 		}
 	}
 	return tasks

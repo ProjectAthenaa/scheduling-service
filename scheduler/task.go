@@ -82,9 +82,9 @@ func (t *Task) getMonitorID() string {
 }
 
 //start, calls the internal process method as a goroutine
-func (t *Task) start(ctx context.Context) error {
+func (t *Task) start(ctx context.Context) {
 	go t.process(ctx)
-	return nil
+	return
 }
 
 func (t *Task) process(ctx context.Context) {
@@ -227,6 +227,8 @@ func (t *Task) setStatus(status module.STATUS, msg string) {
 func (t *Task) release() {
 	core.Base.GetRedis("cache").SRem(context.Background(), "scheduler:processing", t.taskID)
 	t.taskStarted = false
+	t.stopped = true
+	go scheduler.deleteOlderEntries()
 }
 
 func (t *Task) getProxy() (*module.Proxy, error) {
