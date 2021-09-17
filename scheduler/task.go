@@ -228,7 +228,6 @@ func (t *Task) release() {
 	core.Base.GetRedis("cache").SRem(context.Background(), "scheduler:processing", t.taskID)
 	t.taskStarted = false
 	t.stopped = true
-	go scheduler.deleteOlderEntries()
 }
 
 func (t *Task) getProxy() (*module.Proxy, error) {

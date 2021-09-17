@@ -26,7 +26,7 @@ func removeFromProcessingList(taskID string) {
 	core.Base.GetRedis("cache").SRem(context.Background(), "scheduler:processing", taskID)
 }
 
-func (s *Schedule) loadTask(taskID string) *Task  {
+func loadTask(ctx context.Context, taskID string) *Task {
 	dbTask, err := core.Base.GetPg("pg").
 		Task.
 		Query().
@@ -39,7 +39,7 @@ func (s *Schedule) loadTask(taskID string) *Task  {
 				sonic.UUIDParser(taskID),
 			),
 		).
-		First(s.ctx)
+		First(ctx)
 
 	if err != nil {
 		removeFromProcessingList(taskID)
@@ -50,9 +50,9 @@ func (s *Schedule) loadTask(taskID string) *Task  {
 		QueryProfileGroup().
 		QueryApp().
 		QueryUser().
-		First(s.ctx)
+		First(ctx)
 
-	ctx, cancel := context.WithCancel(s.ctx)
+	ctx, cancel := context.WithCancel(ctx)
 
 	task := &Task{
 		Task:              dbTask,

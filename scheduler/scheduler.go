@@ -14,30 +14,27 @@ func init() {
 	if err := populateMap(); err != nil {
 		panic(err)
 	}
-	scheduler.init()
 }
 
 //GetUserTasks retrieves user scheduled tasks
 func GetUserTasks(userID string) []*model.Task {
-	return scheduler.getUserTasks(userID)
+	return []*model.Task{}
+	//return scheduler.getUserTasks(userID)
 }
 
 //Stop stops the scheduler
 func Stop() {
-	scheduler.cancelFunc()
+	scheduler.cancel()
 }
 
 //Subscribe returns a redis pubSub struct if the subscription token is valid
 func Subscribe(ctx context.Context, tokens ...string) (*redis.PubSub, func() error, error) {
 	var channelNames []string
-	scheduler.locker.Lock()
-	defer scheduler.locker.Unlock()
 
 	for _, token := range tokens {
 		channelNames = append(channelNames, fmt.Sprintf("tasks:updates:%s", token))
 	}
 
-	fmt.Println(channelNames)
 	pubsub := core.Base.GetRedis("cache").Subscribe(ctx, channelNames...)
 
 	closePubSub := func() error {
@@ -52,8 +49,6 @@ func Subscribe(ctx context.Context, tokens ...string) (*redis.PubSub, func() err
 
 //PublishCommand publishes the given command to the channel given, if the task exists
 func PublishCommand(ctx context.Context, token string, command model.Command) error {
-	scheduler.locker.Lock()
-	defer scheduler.locker.Unlock()
 	core.Base.GetRedis("cache").Publish(ctx, fmt.Sprintf("tasks:commands:%s", token), command)
 	return nil
 }
