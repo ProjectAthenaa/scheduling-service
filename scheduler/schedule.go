@@ -78,7 +78,7 @@ func (s *Scheduler) loadTasks() {
 		return
 	}
 
-	log.Info("Task Loaded | ", task.ID.String())
+	log.Info("Task Loaded | ", task.ID.String(), " | Start In ", task.StartTime)
 
 	job.Tag(task.controlToken, task.ID.String(), task.userID)
 	s.cancellers.Store(task.controlToken, task.cancel)
