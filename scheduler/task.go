@@ -50,7 +50,6 @@ type Task struct {
 	payload          *module.Data
 	account          *account
 	site             product.Site
-	stopped          bool
 	monitorStartTime time.Time
 }
 
