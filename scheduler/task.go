@@ -120,7 +120,7 @@ func (t *Task) process(ctx context.Context) {
 }
 
 func (t *Task) taskStarted() bool {
-	return rdb.Get(context.Background(), fmt.Sprintf("tasks:started:%s", t.ID.String())).Val() == ""
+	return !(rdb.Get(context.Background(), fmt.Sprintf("tasks:started:%s", t.ID.String())).Val() == "")
 }
 
 func (t *Task) setStarted() {
