@@ -174,8 +174,10 @@ func (s *Scheduler) taskRequestListener() {
 					}
 					return
 				default:
+					if len(job.Tags()) < 2{
+						continue
+					}
 					if userID == job.Tags()[2] {
-						fmt.Println(job.Error(), job.Tags())
 						task := &model.Task{
 							ID:                job.Tags()[1],
 							SubscriptionToken: job.Tags()[1],
