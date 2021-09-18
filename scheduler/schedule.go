@@ -67,7 +67,7 @@ func (s *Scheduler) loadTasks() {
 		return
 	}
 
-	task := loadTask(s.ctx, taskID)
+	task := LoadTask(s.ctx, taskID)
 
 	monitorJob, err := s.StartAt(task.monitorStartTime).Do(task.startMonitor, s.ctx)
 	if err != nil {
@@ -77,7 +77,7 @@ func (s *Scheduler) loadTasks() {
 
 	monitorJob.Tag(task.ID.String())
 
-	job, err := s.StartAt(*task.StartTime).Do(task.start, task.ctx)
+	job, err := s.StartAt(*task.StartTime).Do(task.Start, task.ctx)
 	if err != nil {
 		log.Error("error scheduling task: ", err)
 		return

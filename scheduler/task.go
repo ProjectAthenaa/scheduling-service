@@ -82,31 +82,11 @@ func (t *Task) getMonitorID() string {
 	return ""
 }
 
-//start, calls the internal process method as a goroutine
-func (t *Task) start(ctx context.Context) {
-	t.process(ctx)
-	return
-}
-
-func (t *Task) process(ctx context.Context) {
-	mu := redisSync.NewMutex(fmt.Sprintf(fmt.Sprintf("tasks:started:%s:mutex", t.ID.String())))
-	muCtx, _ := context.WithTimeout(t.ctx, time.Minute)
-	err := mu.LockContext(muCtx)
-	if err != nil {
+//Start, calls the internal process method as a goroutine
+func (t *Task) Start(ctx context.Context) {
+	if t.taskStarted() || t.stopped() {
 		return
 	}
-	defer func(mu *redsync.Mutex, ctx context.Context) {
-		_, err := mu.UnlockContext(ctx)
-		if err != nil {
-
-		}
-	}(mu, muCtx)
-
-	log.Info("Task Started: ", t.taskStarted())
-	if t.taskStarted() || t.stopped(){
-		return
-	}
-	log.Info("Checked if task has started")
 
 	payload, err := t.getPayload()
 	if err != nil {
@@ -114,11 +94,9 @@ func (t *Task) process(ctx context.Context) {
 		return
 	}
 
-	log.Info("Constructed Payload")
-
 	started, err := Modules[t.site].Task(ctx, payload)
 	if err != nil {
-		log.Error("start task: ", err)
+		log.Error("Start task: ", err)
 		return
 	}
 
@@ -127,7 +105,7 @@ func (t *Task) process(ctx context.Context) {
 		log.Info("Task Started | ", t.ID)
 		go t.processUpdates()
 	}
-
+	return
 }
 
 func (t *Task) taskStarted() bool {
@@ -155,8 +133,7 @@ func (t *Task) processUpdates() {
 
 		switch status.Status {
 		case module.STATUS_STOPPED, module.STATUS_CHECKED_OUT:
-			//log.Info("Task stopped or checkout, releasing resources...", " | ", &t)
-			go t.release()
+			t.release()
 		default:
 			continue
 		}
@@ -164,7 +141,7 @@ func (t *Task) processUpdates() {
 	}
 }
 
-//getPayload retrieves the initial payload needed to start the task
+//getPayload retrieves the initial payload needed to Start the task
 func (t *Task) getPayload() (*module.Data, error) {
 	t.dataLock.Lock()
 	defer t.dataLock.Unlock()
@@ -247,7 +224,7 @@ func (t *Task) setStatus(status module.STATUS, msg string) {
 		return
 	}
 
-	core.Base.GetRedis("cache").Publish(t.ctx, "tasks:updates:%s", string(data))
+	core.Base.GetRedis("cache").Publish(t.ctx, fmt.Sprintf("tasks:updates:%s", t.ID), string(data))
 }
 
 func (t *Task) release() {

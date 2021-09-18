@@ -10,10 +10,6 @@ import (
 	"github.com/ProjectAthenaa/scheduling-service/scheduler"
 	"github.com/ProjectAthenaa/sonic-core/protos/module"
 	"github.com/ProjectAthenaa/sonic-core/sonic"
-	"github.com/ProjectAthenaa/sonic-core/sonic/core"
-	"github.com/ProjectAthenaa/sonic-core/sonic/database/ent/task"
-	user2 "github.com/ProjectAthenaa/sonic-core/sonic/database/ent/user"
-	"time"
 )
 
 func (r *mutationResolver) SendCommand(ctx context.Context, controlToken string, command model.Command) (bool, error) {
@@ -27,50 +23,27 @@ func (r *mutationResolver) SendCommand(ctx context.Context, controlToken string,
 }
 
 func (r *mutationResolver) StartTasks(ctx context.Context, taskIDs []string) (bool, error) {
-	userID, err := contextExtract(ctx)
+	_, err := contextExtract(ctx)
 	if err != nil {
 		return false, err
 	}
 
-	user, err := core.Base.GetPg("pg").User.Query().WithApp().Where(user2.ID(sonic.UUIDParser(*userID))).First(ctx)
-	if err != nil {
-		return false, sonic.EntErr(err)
-	}
-	//var wg sync.WaitGroup
+	//user, err := core.Base.GetPg("pg").User.Query().WithApp().Where(user2.ID(sonic.UUIDParser(*userID))).First(ctx)
+	//if err != nil {
+	//	return false, sonic.EntErr(err)
+	//}
 	for _, id := range taskIDs {
-	//id := id
-	//go func() {
-	//	defer wg.Done()
-	tsk, err := user.Edges.App.QueryTaskGroups().QueryTasks().Where(task.ID(sonic.UUIDParser(id))).First(ctx)
-	if err != nil {
-		return false, sonic.EntErr(err)
-	}
-	if _, err = tsk.Update().SetStartTime(time.Now().Add(time.Second * 5)).Save(ctx); err != nil {
-		return false, sonic.EntErr(err)
-	}
-	//}()
-	}
-	//wg.Wait()
+		task := scheduler.LoadTask(ctx, id)
+		go task.Start(ctx)
+		//tsk, err := user.Edges.App.QueryTaskGroups().QueryTasks().Where(task.ID(sonic.UUIDParser(id))).First(ctx)
+		//if err != nil {
+		//	return false, sonic.EntErr(err)
+		//}
+		//if _, err = tsk.Update().SetStartTime(time.Now().Add(time.Second * 5)).Save(ctx); err != nil {
+		//	return false, sonic.EntErr(err)
+		//}
 
-	//var predicates []predicate.Task
-
-	//for _, id := range taskIDs {
-	//	predicates = append(predicates, task.ID(sonic.UUIDParser(id)))
-	//}
-	//
-	//if _, err = core.Base.GetPg("pg").
-	//	Task.
-	//	Update().
-	//	Where(
-	//		task.Or(predicates...),
-	//	).
-	//	SetStartTime(
-	//		time.Now().Add(time.Second * 5),
-	//	).
-	//	Save(ctx); err != nil {
-	//	return false, err
-	//}
-
+	}
 	return true, nil
 }
 

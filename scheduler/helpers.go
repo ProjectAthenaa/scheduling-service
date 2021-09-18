@@ -27,7 +27,7 @@ func removeFromProcessingList(taskID string) {
 	core.Base.GetRedis("cache").SRem(context.Background(), "scheduler:processing", taskID)
 }
 
-func loadTask(ctx context.Context, taskID string) *Task {
+func LoadTask(ctx context.Context, taskID string) *Task {
 	dbTask, err := core.Base.GetPg("pg").
 		Task.
 		Query().

@@ -65,7 +65,7 @@ func (t *Task) startMonitor(ctx context.Context) error {
 	}
 
 	if resp.Stopped == true {
-		log.Warn("Monitor with ID: ", t.monitorChannel, " did not start")
+		log.Warn("Monitor with ID: ", t.monitorChannel, " did not Start")
 		return nil
 	}
 
