@@ -35,7 +35,7 @@ func NewScheduler() *Scheduler {
 		Scheduler:  gocron.NewScheduler(time.UTC),
 	}
 
-	if _, err := s.Every(100).Milliseconds().Do(s.loadTasks); err != nil {
+	if _, err := s.Every(1).Millisecond().Do(s.loadTasks); err != nil {
 		log.Fatalln("error starting task loader: ", err)
 	}
 
@@ -59,11 +59,20 @@ func (s *Scheduler) loadTasks() {
 
 	task := loadTask(s.ctx, taskID)
 
+	monitorJob, err := s.StartAt(task.monitorStartTime).Do(task.startMonitor, s.ctx)
+	if err != nil {
+		log.Error("error scheduling task monitorL: ", err)
+		return
+	}
+
+	monitorJob.Tag(task.ID.String())
+
 	job, err := s.StartAt(*task.StartTime).Do(task.start, task.ctx)
 	if err != nil {
 		log.Error("error scheduling task: ", err)
 		return
 	}
+
 	job.Tag(task.controlToken, task.ID.String())
 	s.cancellers.Store(task.controlToken, task.cancel)
 }
@@ -86,6 +95,7 @@ func (s *Scheduler) commandListener() {
 				}
 
 				cancel.(context.CancelFunc)()
+
 			}
 		}()
 	}

@@ -8,6 +8,7 @@ import (
 	task2 "github.com/ProjectAthenaa/sonic-core/sonic/database/ent/task"
 	"github.com/google/uuid"
 	"sync"
+	"time"
 )
 
 //removeTask removes a given task from the index provided
@@ -66,6 +67,7 @@ func loadTask(ctx context.Context, taskID string) *Task {
 		ctx:               ctx,
 		cancel:            cancel,
 		startTime:         *dbTask.StartTime,
+		monitorStartTime:  dbTask.StartTime.Truncate(time.Minute),
 	}
 
 	return task
