@@ -90,7 +90,7 @@ func (t *Task) start(ctx context.Context) {
 }
 
 func (t *Task) process(ctx context.Context) {
-	mu := redisSync.NewMutex(fmt.Sprintf(fmt.Sprintf("tasks:started:%s", t.ID.String())))
+	mu := redisSync.NewMutex(fmt.Sprintf(fmt.Sprintf("tasks:started:%s:mutex", t.ID.String())))
 	muCtx, _ := context.WithTimeout(t.ctx, time.Minute)
 	err := mu.LockContext(muCtx)
 	if err != nil {
