@@ -20,6 +20,7 @@ type Scheduler struct {
 	ctx        context.Context
 	cancel     context.CancelFunc
 	cancellers *sync.Map
+	tasks      *sync.Map
 	*gocron.Scheduler
 }
 
@@ -34,6 +35,7 @@ func NewScheduler() *Scheduler {
 		ctx:        ctx,
 		cancel:     cancel,
 		cancellers: &sync.Map{},
+		tasks:      &sync.Map{},
 		Scheduler:  gocron.NewScheduler(time.UTC),
 	}
 
@@ -61,6 +63,9 @@ func (s *Scheduler) loadTasks() {
 		return
 	}
 
+	if _, exists := s.tasks.Load(taskID); exists {
+		return
+	}
 
 	task := loadTask(s.ctx, taskID)
 
@@ -124,6 +129,7 @@ func (s *Scheduler) statusListener() {
 		}
 
 		taskID := strings.Split(update.Channel, ":")[2]
+		s.tasks.Delete(taskID)
 
 		go func() {
 			for _, job := range s.Jobs() {
@@ -174,7 +180,7 @@ func (s *Scheduler) taskRequestListener() {
 					}
 					return
 				default:
-					if len(job.Tags()) < 2{
+					if len(job.Tags()) < 2 {
 						continue
 					}
 					if userID == job.Tags()[2] {
