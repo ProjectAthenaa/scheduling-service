@@ -94,17 +94,17 @@ func (t *Task) process(ctx context.Context) {
 	muCtx, _ := context.WithTimeout(t.ctx, time.Minute)
 	err := mu.LockContext(muCtx)
 	if err != nil {
-		return 
+		return
 	}
 	defer func(mu *redsync.Mutex, ctx context.Context) {
 		_, err := mu.UnlockContext(ctx)
 		if err != nil {
-			
+
 		}
 	}(mu, muCtx)
 
 	log.Info("Task Started: ", t.taskStarted())
-	if t.taskStarted() {
+	if t.taskStarted() || t.stopped(){
 		return
 	}
 	log.Info("Checked if task has started")
@@ -137,6 +137,10 @@ func (t *Task) taskStarted() bool {
 
 func (t *Task) setStarted() {
 	rdb.SetNX(context.Background(), fmt.Sprintf("tasks:started:%s", t.ID.String()), "1", redis.KeepTTL)
+}
+
+func (t *Task) stopped() bool {
+	return rdb.Get(context.Background(), fmt.Sprintf("tasks:started:%s", t.ID.String())).Val() == "2"
 }
 
 func (t *Task) processUpdates() {
@@ -249,8 +253,7 @@ func (t *Task) setStatus(status module.STATUS, msg string) {
 
 func (t *Task) release() {
 	core.Base.GetRedis("cache").SRem(context.Background(), "scheduler:processing", t.taskID)
-	rdb.Del(context.Background(), fmt.Sprintf("tasks:started:%s", t.ID.String()))
-	t.stopped = true
+	rdb.Set(context.Background(), fmt.Sprintf("tasks:started:%s", t.ID.String()), "2", redis.KeepTTL)
 }
 
 func (t *Task) getProxy() (*module.Proxy, error) {
