@@ -85,7 +85,6 @@ func (t *Task) getMonitorID() string {
 
 //start, calls the internal process method as a goroutine
 func (t *Task) start(ctx context.Context) {
-	log.Info("Entered Start Function")
 	t.process(ctx)
 	return
 }
