@@ -10,6 +10,7 @@ import (
 	"github.com/ProjectAthenaa/sonic-core/sonic/database/ent"
 	"github.com/ProjectAthenaa/sonic-core/sonic/database/ent/accountgroup"
 	"github.com/ProjectAthenaa/sonic-core/sonic/database/ent/product"
+	"github.com/go-redis/redis/v8"
 	"github.com/go-redsync/redsync/v4"
 	"github.com/go-redsync/redsync/v4/redis/goredis/v8"
 	"github.com/json-iterator/go"
@@ -42,15 +43,15 @@ type Task struct {
 	ctx               context.Context
 	cancel            context.CancelFunc
 	monitorStarted    bool
-	taskStarted       bool
-	startTime         time.Time
-	startMutex        *sync.Mutex
-	dataLock          *sync.Mutex
-	payload           *module.Data
-	account           *account
-	site              product.Site
-	stopped           bool
-	monitorStartTime  time.Time
+	//taskStarted       bool
+	startTime        time.Time
+	startMutex       *sync.Mutex
+	dataLock         *sync.Mutex
+	payload          *module.Data
+	account          *account
+	site             product.Site
+	stopped          bool
+	monitorStartTime time.Time
 }
 
 //getMonitorID returns the monitor id of a task based on its lookup values
@@ -93,13 +94,12 @@ func (t *Task) process(ctx context.Context) {
 	t.startMutex.Lock()
 	defer t.startMutex.Unlock()
 
-	if t.taskStarted {
+	if t.taskStarted() {
 		return
 	}
 
 	payload, err := t.getPayload()
 	if err != nil {
-		t.taskStarted = false
 		t.setStatus(module.STATUS_ERROR, "No Account")
 		return
 	}
@@ -111,11 +111,19 @@ func (t *Task) process(ctx context.Context) {
 	}
 
 	if started.Started {
-		t.taskStarted = true
+		t.setStarted()
 		log.Info("Task Started | ", t.ID)
 		go t.processUpdates()
 	}
 
+}
+
+func (t *Task) taskStarted() bool {
+	return rdb.Get(context.Background(), fmt.Sprintf("tasks:started:%s", t.ID.String())).Val() == ""
+}
+
+func (t *Task) setStarted() {
+	rdb.SetNX(context.Background(), fmt.Sprintf("tasks:started:%s", t.ID.String()), "1", redis.KeepTTL)
 }
 
 func (t *Task) processUpdates() {
@@ -228,7 +236,7 @@ func (t *Task) setStatus(status module.STATUS, msg string) {
 
 func (t *Task) release() {
 	core.Base.GetRedis("cache").SRem(context.Background(), "scheduler:processing", t.taskID)
-	t.taskStarted = false
+	rdb.Del(context.Background(), fmt.Sprintf("tasks:started:%s", t.ID.String()))
 	t.stopped = true
 }
 
