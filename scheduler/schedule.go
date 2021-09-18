@@ -43,11 +43,11 @@ func NewScheduler() *Scheduler {
 		log.Fatalln("error starting task loader: ", err)
 	}
 
-	go s.commandListener()
-	go s.statusListener()
-	go s.taskRequestListener()
-
-	s.StartAsync()
+	//go s.commandListener()
+	//go s.statusListener()
+	//go s.taskRequestListener()
+	//
+	//s.StartAsync()
 
 	return &Scheduler{
 		ctx:        ctx,
