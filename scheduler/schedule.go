@@ -37,7 +37,7 @@ func NewScheduler() *Scheduler {
 		Scheduler:  gocron.NewScheduler(time.UTC),
 	}
 
-	if _, err := s.Every(1).Millisecond().Do(s.loadTasks); err != nil {
+	if _, err := s.SingletonMode().Every(1).Millisecond().Do(s.loadTasks); err != nil {
 		log.Fatalln("error starting task loader: ", err)
 	}
 
@@ -57,16 +57,16 @@ func NewScheduler() *Scheduler {
 
 func (s *Scheduler) loadTasks() {
 	taskID := rdb.SPop(s.ctx, "scheduler:new-tasks").Val()
-
 	if taskID == "" {
 		return
 	}
+
 
 	task := loadTask(s.ctx, taskID)
 
 	monitorJob, err := s.StartAt(task.monitorStartTime).Do(task.startMonitor, s.ctx)
 	if err != nil {
-		log.Error("error scheduling task monitorL: ", err)
+		log.Error("error scheduling task monitor: ", err)
 		return
 	}
 
