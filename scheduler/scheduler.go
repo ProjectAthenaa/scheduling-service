@@ -23,6 +23,7 @@ func GetUserTasks(userID string) []*model.Task {
 
 //Stop stops the scheduler
 func Stop() {
+	scheduler.Stop()
 	scheduler.cancel()
 }
 

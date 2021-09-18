@@ -45,6 +45,8 @@ func NewScheduler() *Scheduler {
 	go s.statusListener()
 	go s.taskRequestListener()
 
+	s.StartAsync()
+
 	return &Scheduler{
 		ctx:        ctx,
 		cancel:     cancel,
