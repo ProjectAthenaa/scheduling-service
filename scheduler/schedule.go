@@ -2,6 +2,8 @@ package scheduler
 
 import (
 	"context"
+	"fmt"
+	"github.com/ProjectAthenaa/scheduling-service/graph/model"
 	"github.com/ProjectAthenaa/sonic-core/protos/module"
 	"github.com/ProjectAthenaa/sonic-core/sonic/core"
 	"github.com/go-co-op/gocron"
@@ -73,7 +75,7 @@ func (s *Scheduler) loadTasks() {
 		return
 	}
 
-	job.Tag(task.controlToken, task.ID.String())
+	job.Tag(task.controlToken, task.ID.String(), task.userID)
 	s.cancellers.Store(task.controlToken, task.cancel)
 }
 
@@ -125,6 +127,66 @@ func (s *Scheduler) statusListener() {
 						cancel.(context.CancelFunc)()
 					}
 				}
+			}
+		}()
+	}
+}
+
+func (s *Scheduler) getUserTasks(userID string) []*model.Task {
+	key := fmt.Sprintf("tasks:%s", userID)
+	var tasks []*model.Task
+
+	rdb.Publish(s.ctx, "tasks:user-tasks", userID)
+	time.Sleep(time.Second * 2)
+
+	tasksPayloads := rdb.SMembers(s.ctx, key).Val()
+
+	go rdb.Del(s.ctx, key)
+
+	for _, taskPayload := range tasksPayloads {
+		var task *model.Task
+		if err := json.Unmarshal([]byte(taskPayload), &task); err != nil {
+			log.Error("error unmarshalling payload: ", err)
+			continue
+		}
+		tasks = append(tasks, task)
+	}
+
+	return tasks
+}
+
+func (s *Scheduler) taskRequestListener() {
+	for request := range rdb.Subscribe(s.ctx, "tasks:user-tasks").Channel() {
+		userID := request.Payload
+		go func() {
+			ctx, _ := context.WithTimeout(s.ctx, time.Second)
+			pipe := rdb.Pipeline()
+			for _, job := range s.Jobs() {
+				select {
+				case <-ctx.Done():
+					if _, err := pipe.Exec(s.ctx); err != nil {
+						log.Error("error executing pipeline: ", err)
+					}
+					return
+				default:
+					if userID == job.Tags()[2] {
+						task := &model.Task{
+							ID:                job.Tags()[1],
+							SubscriptionToken: job.Tags()[1],
+							ControlToken:      job.Tags()[0],
+							StartTime:         job.NextRun(),
+						}
+
+						payload, err := json.Marshal(&task)
+						if err != nil {
+							continue
+						}
+						pipe.SAdd(s.ctx, fmt.Sprintf("tasks:%s", userID), string(payload))
+					}
+				}
+			}
+			if _, err := pipe.Exec(s.ctx); err != nil {
+				log.Error("error executing pipeline: ", err)
 			}
 		}()
 	}
