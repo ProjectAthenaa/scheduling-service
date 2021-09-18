@@ -85,23 +85,24 @@ func (t *Task) getMonitorID() string {
 
 //start, calls the internal process method as a goroutine
 func (t *Task) start(ctx context.Context) {
+	log.Info("Entered Start Function")
 	t.process(ctx)
 	return
 }
 
 func (t *Task) process(ctx context.Context) {
-	t.startMutex.Lock()
-	defer t.startMutex.Unlock()
-
 	if t.taskStarted() {
 		return
 	}
+	log.Info("Checked if task has started")
 
 	payload, err := t.getPayload()
 	if err != nil {
 		t.setStatus(module.STATUS_ERROR, "No Account")
 		return
 	}
+
+	log.Info("Constructed Payload")
 
 	started, err := Modules[t.site].Task(ctx, payload)
 	if err != nil {
