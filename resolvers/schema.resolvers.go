@@ -65,7 +65,7 @@ func (r *mutationResolver) StartTasks(ctx context.Context, taskIDs []string) (bo
 			task.Or(predicates...),
 		).
 		SetStartTime(
-			time.Now().Add(time.Second),
+			time.Now().Add(time.Second * 5),
 		).
 		Save(ctx); err != nil {
 		return false, err
