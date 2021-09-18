@@ -43,6 +43,7 @@ func NewScheduler() *Scheduler {
 
 	go s.commandListener()
 	go s.statusListener()
+	go s.taskRequestListener()
 
 	return &Scheduler{
 		ctx:        ctx,
