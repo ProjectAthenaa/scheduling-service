@@ -91,6 +91,7 @@ func (t *Task) start(ctx context.Context) {
 }
 
 func (t *Task) process(ctx context.Context) {
+	log.Info("Task Started: ", t.taskStarted())
 	if t.taskStarted() {
 		return
 	}
