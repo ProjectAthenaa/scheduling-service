@@ -45,7 +45,7 @@ func (r *mutationResolver) StartTasks(ctx context.Context, taskIDs []string) (bo
 	if err != nil {
 		return false, sonic.EntErr(err)
 	}
-	if _, err = tsk.Update().SetStartTime(time.Now().Add(time.Second)).Save(ctx); err != nil {
+	if _, err = tsk.Update().SetStartTime(time.Now().Add(time.Second * 5)).Save(ctx); err != nil {
 		return false, sonic.EntErr(err)
 	}
 	//}()
