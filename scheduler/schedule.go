@@ -4,265 +4,190 @@ import (
 	"context"
 	"fmt"
 	"github.com/ProjectAthenaa/scheduling-service/graph/model"
+	"github.com/ProjectAthenaa/sonic-core/protos/module"
 	"github.com/ProjectAthenaa/sonic-core/sonic/core"
+	"github.com/go-co-op/gocron"
+	"github.com/go-redis/redis/v8"
 	"github.com/prometheus/common/log"
+	"strings"
 	"sync"
 	"time"
 )
 
-type Schedule struct {
-	tasks      []*Task
-	locker     *sync.Mutex
+var rdb redis.UniversalClient
+
+type Scheduler struct {
 	ctx        context.Context
-	cancelFunc context.CancelFunc
+	cancel     context.CancelFunc
+	cancellers *sync.Map
+	*gocron.Scheduler
 }
 
-//NewScheduler creates a new Schedule object with a cancel func
-func NewScheduler() *Schedule {
+func init() {
+	rdb = core.Base.GetRedis("cache")
+}
+
+func NewScheduler() *Scheduler {
 	ctx, cancel := context.WithCancel(context.Background())
-	return &Schedule{ctx: ctx, cancelFunc: cancel}
+
+	s := &Scheduler{
+		ctx:        ctx,
+		cancel:     cancel,
+		cancellers: &sync.Map{},
+		Scheduler:  gocron.NewScheduler(time.UTC),
+	}
+
+	if _, err := s.Every(1).Millisecond().Do(s.loadTasks); err != nil {
+		log.Fatalln("error starting task loader: ", err)
+	}
+
+	go s.commandListener()
+	go s.statusListener()
+
+	return &Scheduler{
+		ctx:        ctx,
+		cancel:     cancel,
+		cancellers: &sync.Map{},
+		Scheduler:  gocron.NewScheduler(time.UTC),
+	}
 }
 
-//init initializes the scheduler by creating a new data map, populating the map and processing the tasks
-func (s *Schedule) init() {
-	defer func() {
-		if a := recover(); a != nil {
-			fmt.Println("Recovered, terminating all tasks")
-			for i := range s.tasks {
-				fmt.Println("Deallocating Task: ", s.tasks[i])
-				go removeFromProcessingList(s.tasks[i].ID.String())
-			}
-		}
-	}()
+func (s *Scheduler) loadTasks() {
+	taskID := rdb.SPop(s.ctx, "scheduler:new-tasks").Val()
 
-	s.locker = &sync.Mutex{}
-	s.tasks = []*Task{}
-
-	go func() {
-		//start population as a goroutine
-		go s.populate()
-		//check for new to-start tasks every 200ms
-		for {
-			select {
-			case <-s.ctx.Done():
-				return
-			default:
-				break
-			}
-
-			//startMonitors for current data set
-			go s.startMonitors()
-
-			//start tasks
-			for i := range s.tasks {
-				if s.tasks[i].taskStarted {
-					continue
-				}
-
-				if time.Since(s.tasks[i].startTime) >= -time.Second*2 {
-					s.tasks[i].start(s.ctx)
-				}
-
-			}
-		}
-
-	}()
-}
-
-//add appends the task to the appropriate task slice in data
-func (s *Schedule) add(taskID string) {
-	defer func() {
-		log.Info("Loaded Task | ", taskID)
-	}()
-	select {
-	case <-s.ctx.Done():
+	if taskID == "" {
 		return
-	default:
-		break
 	}
 
-	task := s.loadTask(taskID)
+	task := loadTask(s.ctx, taskID)
 
-	s.locker.Lock()
-	defer s.locker.Unlock()
-
-	for i := range s.tasks {
-		if s.tasks[i].ID == task.ID {
-			s.tasks[i] = task
-			return
-		}
-	}
-
-	go task.getPayload()
-}
-
-//deleteOlderEntries checks the data set every 15 minutes for any map keys that have exceeded the 1 hour task timeout
-func (s *Schedule) deleteOlderEntries() {
-	defer func() {
-		if a := recover(); a != nil {
-		}
-	}()
-	select {
-	case <-s.ctx.Done():
-		return
-	default:
-		break
-	}
-	s.locker.Lock()
-	defer s.locker.Unlock()
-
-	for i := range s.tasks {
-		if s.tasks[i].stopped {
-			s.tasks = removeTask(s.tasks, i)
-			continue
-		}
-	}
-}
-
-//startMonitors starts the monitors for each task after first isolating the unique tasks
-func (s *Schedule) startMonitors() {
-	select {
-	case <-s.ctx.Done():
-		return
-	default:
-		break
-	}
-	s.locker.Lock()
-	defer s.locker.Unlock()
-
-	rdb := core.Base.GetRedis("cache")
-	pipe := rdb.Pipeline()
-	var wg  = &sync.WaitGroup{}
-	var uniqueTasks = &sync.Map{}
-
-	for _, tk := range s.tasks {
-		wg.Add(1)
-		tk := tk
-		go func() {
-			defer wg.Done()
-			mID := tk.getMonitorID()
-			tk.monitorChannel = mID
-			uniqueTasks.Store(mID, tk)
-
-			proxylist, err := tk.Edges.ProxyListOrErr()
-			if err != nil {
-				log.Error("load proxy list for task: ", tk.taskID, " error: ", err)
-				return
-			}
-
-			proxies, _ := proxylist[0].Proxies(tk.ctx)
-
-			var redisKey = string("proxies:" + tk.site)
-
-			for _, proxy := range proxies {
-				if proxy.Username != "" && proxy.Password != "" {
-					pipe.Publish(tk.ctx, redisKey, fmt.Sprintf("%s:%s@%s:%s", proxy.Username, proxy.Password, proxy.IP, proxy.Port))
-					continue
-				}
-				pipe.Publish(tk.ctx, redisKey, fmt.Sprintf("%s:%s", proxy.IP, proxy.Port))
-			}
-
-		}()
-	}
-	wg.Wait()
-
-	_, err := pipe.Exec(context.Background())
+	monitorJob, err := s.StartAt(task.monitorStartTime).Do(task.startMonitor, s.ctx)
 	if err != nil {
-		log.Error("error sending proxies: ", err)
+		log.Error("error scheduling task monitorL: ", err)
+		return
 	}
 
-	uniqueTasks.Range(func(key, value interface{}) bool {
-		tk := value.(*Task)
-		if !tk.monitorStarted {
-			if err := tk.startMonitor(s.ctx); err != nil {
-				log.Error("error starting monitor:", err)
-				return true
-			}
-			tk.monitorStarted = true
-		} else {
-			return true
+	monitorJob.Tag(task.ID.String())
+
+	job, err := s.StartAt(*task.StartTime).Do(task.start, task.ctx)
+	if err != nil {
+		log.Error("error scheduling task: ", err)
+		return
+	}
+
+	job.Tag(task.controlToken, task.ID.String(), task.userID)
+	s.cancellers.Store(task.controlToken, task.cancel)
+}
+
+func (s *Scheduler) commandListener() {
+	for command := range rdb.PSubscribe(s.ctx, "tasks:commands:*").Channel() {
+		cmd := command.Payload
+		if cmd != "STOP" {
+			continue
 		}
 
+		controlToken := strings.Split(command.Channel, ":")[2]
 		go func() {
-			for i := range s.tasks {
-				if s.tasks[i].monitorChannel == tk.monitorChannel {
-					s.tasks[i].monitorStarted = true
+			if cancel, ok := s.cancellers.LoadAndDelete(controlToken); ok {
+				for _, job := range s.Jobs() {
+					if job.Tags()[0] == controlToken {
+						taskID := job.Tags()[1]
+						rdb.SRem(s.ctx, "scheduler:processing", taskID)
+					}
+				}
+
+				cancel.(context.CancelFunc)()
+
+			}
+		}()
+	}
+}
+
+func (s *Scheduler) statusListener() {
+	var status *module.Status
+
+	for update := range rdb.PSubscribe(s.ctx, "tasks:updates:*").Channel() {
+		if err := json.Unmarshal([]byte(update.Payload), &status); err != nil {
+			log.Error("error parsing update for task: ", strings.Split(update.Channel, ":")[2])
+		}
+
+		switch status.Status {
+		case module.STATUS_STOPPED, module.STATUS_CHECKED_OUT, module.STATUS_ERROR, module.STATUS_CHECKOUT_DECLINE:
+			break
+		default:
+			continue
+		}
+
+		taskID := strings.Split(update.Channel, ":")[2]
+
+		go func() {
+			for _, job := range s.Jobs() {
+				if job.Tags()[1] == taskID {
+					if cancel, ok := s.cancellers.LoadAndDelete(job.Tags()[0]); ok {
+						cancel.(context.CancelFunc)()
+					}
 				}
 			}
 		}()
-
-		return true
-	})
-
+	}
 }
 
-//populate spawns the deleteOlderEntries func as a goroutine, creates a goroutine to listen for deleted tasks, and retrieves
-//all tasks from the database
-func (s *Schedule) populate() {
-	rdb := core.Base.GetRedis("cache")
+func (s *Scheduler) getUserTasks(userID string) []*model.Task {
+	key := fmt.Sprintf("tasks:%s", userID)
+	var tasks []*model.Task
 
-	go func() {
-		pubSub := rdb.Subscribe(s.ctx, "scheduler:tasks-updated")
+	rdb.Publish(s.ctx, "tasks:user-tasks", userID)
+	time.Sleep(time.Second * 2)
 
-		for taskID := range pubSub.Channel() {
-			for i := range s.tasks {
-				if s.tasks[i].ID.String() == taskID.Payload {
-					go s.add(taskID.Payload)
-				}
-			}
-		}
+	tasksPayloads := rdb.SMembers(s.ctx, key).Val()
 
-	}()
+	go rdb.Del(s.ctx, key)
 
-	for range time.Tick(time.Millisecond * 25) {
-		newTask := rdb.SPop(s.ctx, "scheduler:scheduled").Val()
-		if newTask == "" {
+	for _, taskPayload := range tasksPayloads {
+		var task *model.Task
+		if err := json.Unmarshal([]byte(taskPayload), &task); err != nil {
+			log.Error("error unmarshalling payload: ", err)
 			continue
 		}
-		rdb.SAdd(s.ctx, "scheduler:processing", newTask)
-		go s.add(newTask)
-
-	}
-
-}
-
-//getUserTasks retrieves the current user tasks that are appended to the data pool
-func (s *Schedule) getUserTasks(userID string) (tasks []*model.Task) {
-	s.locker.Lock()
-	defer s.locker.Unlock()
-	for i := range s.tasks {
-		if s.tasks[i].userID == userID {
-			tasks = append(tasks, &model.Task{
-				ID:                s.tasks[i].taskID,
-				SubscriptionToken: s.tasks[i].subscriptionToken,
-				ControlToken:      s.tasks[i].controlToken,
-				StartTime:         s.tasks[i].startTime,
-			})
-		}
-	}
-	return
-}
-
-//getData is a debug method that returns all the data of the scheduler
-func (s *Schedule) getData() map[time.Time][]*Task {
-	s.locker.Lock()
-	defer s.locker.Unlock()
-
-	var tasks = map[time.Time][]*Task{}
-
-	for i := range s.tasks {
-		tasks[s.tasks[i].startTime] = append(tasks[s.tasks[i].startTime], s.tasks[i])
+		tasks = append(tasks, task)
 	}
 
 	return tasks
 }
 
-func (s *Schedule) getTasks(t time.Time) []*Task {
-	var tasks []*Task
-	for i := range s.tasks {
-		if s.tasks[i].startTime == t {
-			tasks = append(tasks, s.tasks[i])
-		}
+func (s *Scheduler) taskRequestListener() {
+	for request := range rdb.Subscribe(s.ctx, "tasks:user-tasks").Channel() {
+		userID := request.Payload
+		go func() {
+			ctx, _ := context.WithTimeout(s.ctx, time.Second)
+			pipe := rdb.Pipeline()
+			for _, job := range s.Jobs() {
+				select {
+				case <-ctx.Done():
+					if _, err := pipe.Exec(s.ctx); err != nil {
+						log.Error("error executing pipeline: ", err)
+					}
+					return
+				default:
+					if userID == job.Tags()[2] {
+						task := &model.Task{
+							ID:                job.Tags()[1],
+							SubscriptionToken: job.Tags()[1],
+							ControlToken:      job.Tags()[0],
+							StartTime:         job.NextRun(),
+						}
+
+						payload, err := json.Marshal(&task)
+						if err != nil {
+							continue
+						}
+						pipe.SAdd(s.ctx, fmt.Sprintf("tasks:%s", userID), string(payload))
+					}
+				}
+			}
+			if _, err := pipe.Exec(s.ctx); err != nil {
+				log.Error("error executing pipeline: ", err)
+			}
+		}()
 	}
-	return tasks
 }
